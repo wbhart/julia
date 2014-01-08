@@ -2644,7 +2644,7 @@ function inlining_pass(e::Expr, sv, ast)
                             return (e,stmts)
                         end
                     end
-                    e.args = [{e.args[2]}, newargs...]
+                    e.args = [{e.args[2]}; newargs...]
 
                     # now try to inline the simplified call
 
