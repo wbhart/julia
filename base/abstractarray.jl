@@ -426,7 +426,7 @@ function circshift(a, shiftamts)
     for i=1:n
         s = size(a,i)
         d = i<=length(shiftamts) ? shiftamts[i] : 0
-        I[i] = d==0 ? (1:s) : mod([-d:s-1-d], s).+1
+        I[i] = d==0 ? (1:s) : mod([-d:s-1-d;], s).+1
     end
     a[I...]::typeof(a)
 end
@@ -1222,7 +1222,7 @@ function mapslices(f::Function, A::AbstractArray, dims::AbstractVector)
 
     dimsA = [size(A)...]
     ndimsA = ndims(A)
-    alldims = [1:ndimsA]
+    alldims = [1:ndimsA;]
 
     otherdims = setdiff(alldims, dims)
 

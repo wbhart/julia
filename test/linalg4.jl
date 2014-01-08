@@ -277,14 +277,14 @@ end
 
 
 #Test interconversion between special matrix types
-a=[1.0:n]
+a=[1.0:n;]
 A=Diagonal(a)
 for newtype in [Diagonal, Bidiagonal, SymTridiagonal, Tridiagonal, Triangular, Matrix]
     @test full(convert(newtype, A)) == full(A)
 end
 
 for isupper in (true, false)
-    A=Bidiagonal(a, [1.0:n-1], isupper)
+    A=Bidiagonal(a, [1.0:n-1;], isupper)
     for newtype in [Bidiagonal, Tridiagonal, Triangular, Matrix]
         @test full(convert(newtype, A)) == full(A)
     end
@@ -294,12 +294,12 @@ for isupper in (true, false)
     end
 end
 
-A=SymTridiagonal(a, [1.0:n-1])
+A=SymTridiagonal(a, [1.0:n-1;])
 for newtype in [Tridiagonal, Matrix]
     @test full(convert(newtype, A)) == full(A)
 end
 
-A=Tridiagonal(zeros(n-1), [1.0:n], zeros(n-1)) #morally Diagonal
+A=Tridiagonal(zeros(n-1), [1.0:n;], zeros(n-1)) #morally Diagonal
 for newtype in [Diagonal, Bidiagonal, SymTridiagonal, Matrix]
     @test full(convert(newtype, A)) == full(A)
 end
