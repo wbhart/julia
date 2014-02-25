@@ -251,16 +251,10 @@ for f in (:cbrt, :sinh, :cosh, :tanh, :atan, :asinh, :exp, :erf, :erfc, :exp2, :
     @eval begin
         ($f)(x::Float64) = ccall(($(string(f)),libm), Float64, (Float64,), x)
         ($f)(x::Float32) = ccall(($(string(f,"f")),libm), Float32, (Float32,), x)
-        ($f)(x::Real) = ($f)(float(x))
+        ($f)(x::Integer) = ($f)(float(x))
+        ($f)(x::Real) = oftype(x, ($f)(float64(x)))
         @vectorize_1arg Number $f
     end
-end
-
-# fallback definitions to prevent infinite loop from $f(x::Real) def above
-cbrt(x::FloatingPoint) = x^(1//3)
-exp2(x::FloatingPoint) = 2^x
-for f in (:sinh, :cosh, :tanh, :atan, :asinh, :exp, :erf, :erfc, :expm1)
-    @eval ($f)(x::FloatingPoint) = error("not implemented for ", typeof(x))
 end
 
 # TODO: GNU libc has exp10 as an extension; should openlibm?
@@ -275,7 +269,8 @@ for f in (:sin, :cos, :tan, :asin, :acos, :acosh, :atanh, :log, :log2, :log10,
     @eval begin
         ($f)(x::Float64) = nan_dom_err(ccall(($(string(f)),libm), Float64, (Float64,), x), x)
         ($f)(x::Float32) = nan_dom_err(ccall(($(string(f,"f")),libm), Float32, (Float32,), x), x)
-        ($f)(x::Real) = ($f)(float(x))
+        ($f)(x::Integer) = ($f)(float(x))
+        ($f)(x::Real) = oftype(x, ($f)(float64(x)))
         @vectorize_1arg Number $f
     end
 end
