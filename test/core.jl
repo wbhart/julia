@@ -1454,3 +1454,19 @@ x6074 = 6074
 test5536(a::Union(Real, AbstractArray)...) = "Splatting"
 test5536(a::Union(Real, AbstractArray)) = "Non-splatting"
 @test test5536(5) == "Non-splatting"
+
+# issue #5333
+immutable I5333
+    a::Int
+    b::Int
+end
+type T5333
+    a::Int
+    b::Int
+end
+let i = I5333(1,2), t = T5333(1,2)
+    @test I5333(i;b=3) === I5333(1,3)
+    @test I5333(i;a=3) === I5333(3,2)
+    @test_throws T5333(t;a=3)
+    @test_throws T5333(t;b=3)
+end

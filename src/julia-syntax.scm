@@ -706,11 +706,20 @@
       (map (lambda (x) (gensy)) field-names)
       field-names))
 
-(define (default-inner-ctor name field-names field-types)
-  (let ((field-names (safe-field-names field-names field-types)))
-    `(function (call ,name ,@field-names)
-	       (block
-		(call new ,@field-names)))))
+(define (default-inner-ctors name field-names field-types mutabl)
+  (let* ((arg-names (safe-field-names field-names field-types))
+         (ctors (list `(function (call ,name ,@arg-names)
+                                 (block (call new ,@arg-names))))))
+    (if (and (or (not mutabl) (eq? mutabl 'false))
+             (length> field-names 1)
+             (eq? arg-names field-names))
+        (let ((g (gensy)))
+          (cons `(function (call ,name
+                                 (parameters ,@(map (lambda (k) `(kw ,k (|.| ,g ',k))) field-names))
+                                 (|::| ,g ,name))
+                           (block (call new ,@field-names)))
+                ctors))
+        ctors)))
 
 (define (default-outer-ctor name field-names field-types params bounds)
   (let ((field-names (safe-field-names field-names field-types)))
@@ -801,7 +810,7 @@
 	  (field-names (map decl-var fields))
 	  (field-types (map decl-type fields))
 	  (defs2 (if (null? defs)
-		     (list (default-inner-ctor name field-names field-types))
+		     (default-inner-ctors name field-names field-types mut)
 		     defs)))
      (if (null? params)
 	 `(block
