@@ -278,6 +278,7 @@ function history_prev(s::LineEdit.MIState, hist::REPLHistoryProvider)
     if history_move(s, hist, hist.cur_idx-1)
         LineEdit.move_input_start(s)
         LineEdit.move_line_end(s)
+        LineEdit.refresh_line(s)
     else
         Terminals.beep(LineEdit.terminal(s))
     end
@@ -292,6 +293,7 @@ function history_next(s::LineEdit.MIState, hist::REPLHistoryProvider)
     end
     if history_move(s, hist, cur_idx+1)
         LineEdit.move_input_end(s)
+        LineEdit.refresh_line(s)
     else
         Terminals.beep(LineEdit.terminal(s))
     end
