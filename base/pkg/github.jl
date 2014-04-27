@@ -8,6 +8,17 @@ const AUTH_DATA = {
     "note_url" => "http://docs.julialang.org/en/latest/manual/packages/",
 }
 
+function github422(status, content)
+    parsed = json().parse(content)
+    err = parsed["errors"][1]
+    return """
+    $status: $(parsed["message"]) -- $(get(parsed, "documentation_url", ""))
+       resource:   $(err["resource"])
+       field:      $(err["field"])
+       error code: $(err["code"])
+    """
+end
+
 function user()
     if !success(`git config --global github.user`)
         error("""
@@ -33,11 +44,16 @@ end
 function curl(url::String, opts::Cmd=``)
     success(`which curl`) || error("using the GitHub API requires having `curl` installed")
     out, proc = readsfrom(`curl -i -s -S $opts $url`)
-    head = readline(out)
-    status = int(split(head,r"\s+",3)[2])
+    statline = readline(out)
+    status = int(split(statline,r"\s+",3)[2])
+    header = (String=>String)[]
     for line in eachline(out)
-        ismatch(r"^\s*$",line) || continue
-        wait(proc); return status, readall(out)
+        if !ismatch(r"^\s*$",line)
+            (k,v) = split(line, r":\s*", 2)
+            header[k] = v
+            continue
+        end
+        wait(proc); return status, header, readall(out)
     end
     error("strangely formatted HTTP response")
 end
@@ -48,8 +64,15 @@ curl(url::String, data, opts::Cmd=``) =
 function token(user::String=user())
     tokfile = Dir.path(".github","token")
     isfile(tokfile) && return strip(readchomp(tokfile))
-    status, content = curl("https://api.github.com/authorizations",AUTH_DATA,`-u $user`)
-    (status != 401 && status != 403) || error("$status: $(json().parse(content)["message"])")
+    status, header, content = curl("https://api.github.com/authorizations",AUTH_DATA,`-u $user`)
+    if status == 401 && get(header, "X-GitHub-OTP", "") |> x->beginswith(x, "required") && isinteractive()
+        info("Two-factor authentication in use.  Enter auth code.  (You may need to re-enter your password.)")
+        print(STDERR, "Authentication code: ")
+        code = readline(STDIN) |> chomp
+        status, header, content = curl("https://api.github.com/authorizations",AUTH_DATA,`-H "X-GitHub-OTP: $code" -u $user`)
+    end
+    status == 422 && error(github422(status, content))
+    status != 401 && status != 403 || error(json().parse(content)["message"])
     tok = json().parse(content)["token"]
     mkpath(dirname(tokfile))
     open(io->println(io,tok),tokfile,"w")
@@ -58,7 +81,7 @@ end
 
 function req(resource::String, data, opts::Cmd=``)
     url = "https://api.github.com/$resource"
-    status, content = curl(url,data,`-u $(token()):x-oauth-basic $opts`)
+    status, header, content = curl(url,data,`-u $(token()):x-oauth-basic $opts`)
     response = json().parse(content)
     status, response
 end
@@ -85,7 +108,7 @@ end
 
 function fork(owner::String, repo::String)
     status, response = POST("repos/$owner/$repo/forks")
-    status == 202 || error("forking $owner/$repo failed: $(response["message"])")
+    status == 202 || error("$forking $owner/$repo failed: $(response["message"])")
     return response
 end
 
