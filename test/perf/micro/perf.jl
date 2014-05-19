@@ -1,6 +1,7 @@
 using Base.Test
 
 include("../perfutil.jl")
+default_test_group="micro"
 
 ## recursive fib ##
 

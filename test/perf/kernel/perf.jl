@@ -1,4 +1,5 @@
 include("../perfutil.jl")
+default_test_group="kernel"
 
 abstract List{T}
 

@@ -1,4 +1,5 @@
 include("../perfutil.jl")
+default_test_group="cat"
 
 function cat2d_perf(n, iter)
     a = rand(n,n)

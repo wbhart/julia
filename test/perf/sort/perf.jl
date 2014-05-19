@@ -4,6 +4,7 @@ Pkg.add("SortingAlgorithms")
 using SortingAlgorithms #Provides the other sorting algorithms
 
 include("../perfutil.jl")
+default_test_group="sort"
 
 sorts = [InsertionSort, QuickSort, MergeSort, HeapSort, RadixSort, TimSort]
 

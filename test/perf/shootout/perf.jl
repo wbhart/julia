@@ -1,4 +1,5 @@
 include("../perfutil.jl")
+default_test_group="shootout"
 
 #If running from .. directory, include "shootout/" path to data file
 rpath(filename::String) = string(contains(pwd(), "shootout") ? "" : "shootout/", filename)

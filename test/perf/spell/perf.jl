@@ -17,6 +17,7 @@ using DataStructures
 using HTTPClient.HTTPC
 
 include("../perfutil.jl")
+default_test_group="spell"
 
 words(text) = eachmatch(r"[a-z]+", lowercase(text))
 

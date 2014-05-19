@@ -17,8 +17,8 @@ codespeed:
 	@$(call spawn,$(JULIA_EXECUTABLE)) kernel/perf.jl codespeed
 	@$(call spawn,$(JULIA_EXECUTABLE)) shootout/perf.jl codespeed
 #	@$(call spawn,$(JULIA_EXECUTABLE)) cat/perf.jl codespeed
-#	@$(call spawn,$(JULIA_EXECUTABLE)) blas/perf.jl codespeed
-#	@$(call spawn,$(JULIA_EXECUTABLE)) lapack/perf.jl codespeed
+	@$(call spawn,$(JULIA_EXECUTABLE)) blas/perf.jl codespeed
+	@$(call spawn,$(JULIA_EXECUTABLE)) lapack/perf.jl codespeed
 #	@$(call spawn,$(JULIA_EXECUTABLE)) sort/perf.jl codespeed
 	@$(call spawn,$(JULIA_EXECUTABLE)) spell/perf.jl codespeed
 	@$(call spawn,$(JULIA_EXECUTABLE)) report.jl

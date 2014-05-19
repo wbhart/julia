@@ -1,6 +1,7 @@
 const ntrials = 5
 print_output = isempty(ARGS)
 codespeed = length(ARGS) > 0 && ARGS[1] == "codespeed"
+default_test_group=""
 
 if codespeed
     using JSON
@@ -48,8 +49,8 @@ end
 
 macro output_timings(t,name,desc,group)
     quote
-        # If we weren't given anything for the test group, infer off of file path!
-        test_group = length($group) == 0 ? basename(dirname(Base.source_path())) : $group[1]
+        # If we weren't given anything for the test group, use default_test_group!
+        test_group = length($group) == 0 ? default_test_group : $group[1]
         if codespeed
             submit_to_codespeed( $t, $name, $desc, "seconds", test_group )
         elseif print_output
