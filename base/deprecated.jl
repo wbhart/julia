@@ -473,3 +473,5 @@ scale!{T<:Base.LinAlg.BlasReal}(X::Array{T}, s::Complex) = error("scale!: Cannot
 
 @deprecate which(f::Callable, args...) @which f(args...)
 @deprecate rmdir rm
+@deprecate indmin argmin
+@deprecate indmax argmax
