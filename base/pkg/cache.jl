@@ -32,7 +32,6 @@ function prefetch{S<:String}(pkg::String, url::String, sha1s::Vector{S})
     if !isdir(cache)
         info("Cloning cache of $pkg from $url")
         try 
-            mkdir(cache)
             Base.LibGit2.repo_mirror(url, cache)
         catch
             run(`rm -rf $cache`)
