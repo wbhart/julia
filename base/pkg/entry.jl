@@ -606,6 +606,7 @@ end
 
 function build!(pkgs::Vector, errs::Dict, seen::Set=Set())
     for pkg in pkgs
+        !(pkg in installed()) && warn("Attempting to build uninstalled package: $pkg")
         pkg in seen && continue
         build!(Read.requires_list(pkg),errs,push!(seen,pkg))
         path = abspath(pkg,"deps","build.jl")
