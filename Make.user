@@ -1,0 +1,4 @@
+CC = clang
+CXX = clang++
+LLVM_VER = svn
+LLVM_GIT_URL_LLVM = git@github.com:JuliaLang/llvm.git -b jl/thread-local-storage
