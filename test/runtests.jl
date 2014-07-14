@@ -9,7 +9,7 @@ testnames = [
     "floatapprox", "readdlm", "regex", "float16", "combinatorics",
     "sysinfo", "rounding", "ranges", "mod2pi", "euler", "show",
     "lineedit", "replcompletions", "repl", "test", "examples", "goto",
-    "threading"
+    "crashing", "pimfilter", "threading"
 ]
 @unix_only push!(testnames, "unicode")
 
