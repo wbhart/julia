@@ -52,10 +52,12 @@ New language features
 
     In addition to these, many of the Unicode operator symbols are parsed
     as infix operators and are available for user-defined methods ([#6929]).
-    
+
   * Improved reporting of syntax errors ([#6179])
 
   * `break` inside a `for` loop with multiple ranges now exits the entire loop nest ([#5154])
+
+  * Local goto statements using the `@goto` and `@label` macros. ([#101])
 
 REPL improvements
 -----------------
@@ -65,6 +67,8 @@ REPL improvements
 
   * Tab-substitution of LaTeX math symbols (e.g. `\alpha` by `α`) ([#6911]).
     This also works in IJulia and in Emacs ([#6920]).
+
+  * `workspace()` function for obtaining a fresh workspace ([#1195]).
 
 Library improvements
 --------------------
@@ -221,9 +225,9 @@ Library improvements
         the same length.  This generalizes and replaces `normfro` ([#6057]),
         and `norm` is now type-stable ([#6056]).
 
-      * New `UniformScaling` matrix type and identity `I` constant (#5810).
+      * New `UniformScaling` matrix type and identity `I` constant ([#5810]).
 
-      * None of the concrete matrix factorization types are exported from Base
+      * None of the concrete matrix factorization types are exported from `Base`
         by default anymore.
 
     * Sparse linear algebra
@@ -321,6 +325,8 @@ Library improvements
 
   * The signal filtering function `filt` now accepts an optional initial filter state vector. A new in-place function `filt!` is also exported. ([#7513])
 
+  * Significantly faster `cumsum` and `cumprod`. ([#7359])
+
 Build improvements
 ------------------
 
@@ -354,7 +360,8 @@ Deprecated or removed
 
   * `factorize!` is deprecated in favor of `factorize`. ([#5526])
 
-  * `nnz` counts the number of structural nonzeros in a sparse matrix. Use `countnz` for the actual number of nonzeros. ([#6769])
+  * `nnz` counts the number of structural nonzeros in a sparse
+    matrix. Use `countnz` for the actual number of nonzeros. ([#6769])
 
   * `setfield` is renamed `setfield!` ([#5748])
 
@@ -691,10 +698,12 @@ Too numerous to mention.
 [#13]: https://github.com/JuliaLang/julia/issues/13
 [#69]: https://github.com/JuliaLang/julia/issues/69
 [#70]: https://github.com/JuliaLang/julia/issues/70
+[#101]: https://github.com/JuliaLang/julia/issues/101
 [#485]: https://github.com/JuliaLang/julia/issues/485
 [#552]: https://github.com/JuliaLang/julia/issues/552
 [#907]: https://github.com/JuliaLang/julia/issues/907
 [#987]: https://github.com/JuliaLang/julia/issues/987
+[#1195]: https://github.com/JuliaLang/julia/issues/1195
 [#1268]: https://github.com/JuliaLang/julia/issues/1268
 [#1484]: https://github.com/JuliaLang/julia/issues/1484
 [#1539]: https://github.com/JuliaLang/julia/issues/1539
@@ -800,6 +809,7 @@ Too numerous to mention.
 [#5025]: https://github.com/JuliaLang/julia/issues/5025
 [#5059]: https://github.com/JuliaLang/julia/issues/5059
 [#5076]: https://github.com/JuliaLang/julia/issues/5076
+[#5154]: https://github.com/JuliaLang/julia/issues/5154
 [#5164]: https://github.com/JuliaLang/julia/issues/5164
 [#5196]: https://github.com/JuliaLang/julia/issues/5196
 [#5214]: https://github.com/JuliaLang/julia/issues/5214
@@ -834,6 +844,7 @@ Too numerous to mention.
 [#5748]: https://github.com/JuliaLang/julia/issues/5748
 [#5776]: https://github.com/JuliaLang/julia/issues/5776
 [#5778]: https://github.com/JuliaLang/julia/issues/5778
+[#5810]: https://github.com/JuliaLang/julia/issues/5810
 [#5811]: https://github.com/JuliaLang/julia/issues/5811
 [#5819]: https://github.com/JuliaLang/julia/issues/5819
 [#5827]: https://github.com/JuliaLang/julia/issues/5827
@@ -871,6 +882,8 @@ Too numerous to mention.
 [#7125]: https://github.com/JuliaLang/julia/issues/7125
 [#7131]: https://github.com/JuliaLang/julia/issues/7131
 [#7146]: https://github.com/JuliaLang/julia/issues/7146
+[#7359]: https://github.com/JuliaLang/julia/issues/7359
 [#7373]: https://github.com/JuliaLang/julia/issues/7373
+[#7390]: https://github.com/JuliaLang/julia/issues/7390
 [#7435]: https://github.com/JuliaLang/julia/issues/7435
 [#7513]: https://github.com/JuliaLang/julia/issues/7513

@@ -128,6 +128,14 @@ Getting Around
    Print information about the version of Julia in use. If the ``verbose`` argument
    is true, detailed system information is shown as well.
 
+.. function:: workspace()
+
+   Replace the top-level module (``Main``) with a new one, providing a clean workspace.
+   The previous ``Main`` module is made available as ``LastMain``. A previously-loaded
+   package can be accessed using a statement such as ``using LastMain.Package``.
+
+   This function should only be used interactively.
+
 All Objects
 -----------
 
@@ -3781,7 +3789,7 @@ Basic functions
 
 .. function:: countnz(A)
 
-   Counts the number of nonzero values in array A (dense or sparse). Note that this is not a constant-time operation. For sparse matrices, one should usually use ``nfilled`` instead.
+   Counts the number of nonzero values in array A (dense or sparse). Note that this is not a constant-time operation. For sparse matrices, one should usually use ``nnz``, which returns the number of stored values.
 
 .. function:: conj!(A)
 
