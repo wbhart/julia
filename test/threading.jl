@@ -240,9 +240,9 @@ function pmedian_filter(im::Matrix, filterSize=3; numthreads=2)
 end
 
 
-let N = 512
+let N = 1000
     A = rand(N,N)
-    filterSize = 3
+    filterSize = 5
 
     println("\nmedian_filter - serial")
     B = median_filter(A,filterSize) 

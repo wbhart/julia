@@ -35,9 +35,6 @@
 extern "C" {
 #endif
 
-JL_DEFINE_MUTEX_EXT(gc)
-extern uv_mutex_t gc_pool_mutex[N_GC_THREADS];
-
 typedef struct _gcpage_t {
     char data[GC_PAGE_SZ];
     union {
@@ -112,6 +109,28 @@ static size_t total_freed_bytes=0;
 #define gc_setmark_buf(o) gc_setmark(gc_val_buf(o))
 #define gc_typeof(v) ((jl_value_t*)(((uptrint_t)jl_typeof(v))&~1UL))
 
+typedef struct _mallocarray_t {
+    jl_array_t *a;
+    struct _mallocarray_t *next;
+} mallocarray_t;
+
+#define N_POOLS 42
+
+// per-thread heaps
+typedef struct _jl_thread_heap_t {
+    arraylist_t preserved_values;
+    arraylist_t weak_refs;
+    htable_t finalizer_table;
+    bigval_t *big_objects = NULL;
+    mallocarray_t *mallocarrays = NULL;
+    mallocarray_t *mafreelist = NULL;
+    pool_t norm_pools[N_POOLS];
+    pool_t ephe_pools[N_POOLS];
+    pool_t *pools;
+
+} jl_thread_heap_t;
+
+
 // malloc wrappers, aligned allocation
 
 #ifdef _P64
@@ -185,9 +204,7 @@ void *jl_gc_managed_malloc(size_t sz)
     sz = (sz+15) & -16;
     void *b = malloc_a16(sz);
     if (b == NULL)
-    {
         jl_throw(jl_memory_exception);
-    }
     JL_ATOMIC_FETCH_AND_ADD(allocd_bytes,sz);    
     return b;
 }
@@ -216,56 +233,44 @@ void *jl_gc_managed_realloc(void *d, size_t sz, size_t oldsz, int isaligned)
     }
 #endif
     if (b == NULL)
-    {
         jl_throw(jl_memory_exception);
-    }
     JL_ATOMIC_FETCH_AND_ADD(allocd_bytes,sz);    
     return b;
 }
 
 // preserved values
 
-static arraylist_t preserved_values;
-
 int jl_gc_n_preserved_values(void)
 {
-    return preserved_values.len;
+    return jl_thread_heap.preserved_values.len;
 }
 
 void jl_gc_preserve(jl_value_t *v)
 {
-    JL_LOCK(gc) 
-    arraylist_push(&preserved_values, (void*)v);
-    JL_UNLOCK(gc)
+    arraylist_push(&jl_thread_heap.preserved_values, (void*)v);
 }
 
 void jl_gc_unpreserve(void)
 {
-    JL_LOCK(gc) 
-    (void)arraylist_pop(&preserved_values);
-    JL_UNLOCK(gc)
+    (void)arraylist_pop(&jl_thread_heap.preserved_values);
 }
 
 // weak references
-
-static arraylist_t weak_refs;
 
 DLLEXPORT jl_weakref_t *jl_gc_new_weakref(jl_value_t *value)
 {
     jl_weakref_t *wr = (jl_weakref_t*)alloc_2w();
     wr->type = (jl_value_t*)jl_weakref_type;
     wr->value = value;
-    JL_LOCK(gc)
-    arraylist_push(&weak_refs, wr);
-    JL_UNLOCK(gc)
+    arraylist_push(&jl_thread_heap.weak_refs, wr);
     return wr;
 }
 
 static void sweep_weak_refs(void)
 {
-    size_t n=0, ndel=0, l=weak_refs.len;
+    size_t n=0, ndel=0, l=jl_thread_heap.weak_refs.len;
     jl_weakref_t *wr;
-    void **lst = weak_refs.items;
+    void **lst = jl_thread_heap.weak_refs.items;
     void *tmp;
 #define SWAP_wr(a,b) (tmp=a,a=b,b=tmp,1)
     if (l == 0)
@@ -283,12 +288,11 @@ static void sweep_weak_refs(void)
         }
     } while ((n < l-ndel) && SWAP_wr(lst[n],lst[n+ndel]));
 
-    weak_refs.len -= ndel;
+    jl_thread_heap.weak_refs.len -= ndel;
 }
 
 // finalization
 
-static htable_t finalizer_table;
 static arraylist_t to_finalize;
 
 static void schedule_finalization(void *o)
@@ -365,8 +369,6 @@ void jl_gc_add_finalizer(jl_value_t *v, jl_function_t *f)
 
 // big value list
 
-static bigval_t *big_objects = NULL;
-
 static void *alloc_big(size_t sz)
 {
     if (allocd_bytes > collect_interval)
@@ -378,25 +380,21 @@ static void *alloc_big(size_t sz)
     bigval_t *v = (bigval_t*)malloc_a16(allocsz);
     JL_ATOMIC_FETCH_AND_ADD(allocd_bytes,allocsz);  
     if (v == NULL)
-    {
         jl_throw(jl_memory_exception);
-    }
 #ifdef MEMDEBUG
     //memset(v, 0xee, allocsz);
 #endif
     v->sz = sz;
     v->flags = 0;
-    JL_LOCK(gc)
-    v->next = big_objects;
-    big_objects = v;
-    JL_UNLOCK(gc)
+    v->next = jl_thread_heap->big_objects;
+    jl_thread_heap->big_objects = v;
     return &v->_data[0];
 }
 
 static void sweep_big(void)
 {
-    bigval_t *v = big_objects;
-    bigval_t **pv = &big_objects;
+    bigval_t *v = jl_thread_heap->big_objects;
+    bigval_t **pv = &jl_thread_heap->big_objects;
     while (v != NULL) {
         bigval_t *nxt = v->next;
         if (v->marked) {
@@ -416,14 +414,6 @@ static void sweep_big(void)
 }
 
 // tracking Arrays with malloc'd storage
-
-typedef struct _mallocarray_t {
-    jl_array_t *a;
-    struct _mallocarray_t *next;
-} mallocarray_t;
-
-static mallocarray_t *mallocarrays = NULL;
-static mallocarray_t *mafreelist = NULL;
 
 void jl_gc_track_malloced_array(jl_array_t *a)
 {
@@ -483,11 +473,6 @@ static void sweep_malloced_arrays()
 }
 
 // pool allocation
-
-#define N_POOLS 42
-static pool_t norm_pools[N_GC_THREADS][N_POOLS];
-static pool_t ephe_pools[N_GC_THREADS][N_POOLS];
-static pool_t *pools= &norm_pools[0][0];
 
 static void add_page(pool_t *p)
 {
@@ -951,8 +936,8 @@ int64_t diff_gc_total_bytes(void)
 }
 void sync_gc_total_bytes(void) {last_gc_total_bytes = jl_gc_total_bytes();}
 
-void jl_gc_ephemeral_on(void)  { pools = &ephe_pools[0][0]; }
-void jl_gc_ephemeral_off(void) { pools = &norm_pools[0][0]; }
+void jl_gc_ephemeral_on(void)  { jl_thread_heap->pools = &jl_thread_heap->ephe_pools[0]; }
+void jl_gc_ephemeral_off(void) { jl_thread_heap->pools = &jl_thread_heap->norm_pools[0]; }
 
 #if defined(MEMPROFILE)
 static void all_pool_stats(void);
@@ -1033,30 +1018,6 @@ void jl_gc_collect(void)
 
 // allocator entry points
 
-static inline void* thread_safe_pool_alloc(size_t szclass_)
-{
-    void* a;
-
-    if(jl_main_thread_id == uv_thread_self() )
-        return pool_alloc(&pools[szclass_]);
-
-    for(int n=1; n<N_GC_THREADS; n++)
-    {
-        if(uv_mutex_trylock(gc_pool_mutex+n) == 0)
-        {
-            a = pool_alloc(&pools[N_POOLS*n+szclass_]);
-            uv_mutex_unlock(gc_pool_mutex+n);
-            return a;
-        }
-    }
-
-    // all pools are locked
-    uv_mutex_lock(gc_pool_mutex+1);
-    a = pool_alloc(&pools[N_POOLS+szclass_]);
-    uv_mutex_unlock(gc_pool_mutex+1);
-    return a;
-}
-
 void *allocb(size_t sz)
 {
     void *b;
@@ -1068,7 +1029,7 @@ void *allocb(size_t sz)
         b = alloc_big(sz);
     }
     else {
-        b = thread_safe_pool_alloc(szclass(sz));
+        b = pool_alloc(&jl_thread_heap->pools[szclass(sz)]);
     }
 #endif
     return (void*)((void**)b + 1);
@@ -1076,64 +1037,48 @@ void *allocb(size_t sz)
 
 DLLEXPORT void *allocobj(size_t sz)
 {
-    void* a;
 #ifdef MEMDEBUG
-    a = alloc_big(sz);
-    return a;
+    return alloc_big(sz);
 #endif
     if (sz > 2048)
-    {
-        a = alloc_big(sz);
-        return a;
-    }
- 
-    a = thread_safe_pool_alloc(szclass(sz));
-    return a;
+        return alloc_big(sz);
+    return pool_alloc(&jl_thread_heap->pools[szclass(sz)]);
 }
 
 DLLEXPORT void *alloc_2w(void)
 {
-    void* b;
 #ifdef MEMDEBUG
-    b = alloc_big(2*sizeof(void*));
-    return b;
+    return alloc_big(2*sizeof(void*));
 #endif
 #ifdef _P64
-    b = thread_safe_pool_alloc(2);
+    return pool_alloc(&jl_thread_heap->pools[2]);
 #else
-    b = thread_safe_pool_alloc(0);
+    return pool_alloc(&jl_thread_heap->pools[0]);
 #endif
-    return b;
 }
 
 DLLEXPORT void *alloc_3w(void)
 {
-    void* b;
 #ifdef MEMDEBUG
-    b = alloc_big(3*sizeof(void*));
-    return b;
+    return alloc_big(3*sizeof(void*));
 #endif
 #ifdef _P64
-    b = thread_safe_pool_alloc(4);
+    return pool_alloc(&jl_thread_heap->pools[4]);
 #else
-    b = thread_safe_pool_alloc(1);
+    return pool_alloc(&jl_thread_heap->pools[1]);
 #endif
-    return b;
 }
 
 DLLEXPORT void *alloc_4w(void)
 {
-    void* b;
 #ifdef MEMDEBUG
-    b = alloc_big(4*sizeof(void*));
-    return b;
+    return alloc_big(4*sizeof(void*));
 #endif
 #ifdef _P64
-    b = thread_safe_pool_alloc(6);
+    return pool_alloc(&jl_thread_heap->pools[6]);
 #else
-    b = thread_safe_pool_alloc(2);
+    return pool_alloc(&jl_thread_heap->pools[2]);
 #endif
-    return b;
 }
 
 #ifdef GC_FINAL_STATS
@@ -1155,35 +1100,41 @@ void jl_print_gc_stats(JL_STREAM *s)
 
 // initialization
 
-void jl_gc_init(void)
+jl_thread_heap_t *jl_mk_thread_heap()
 {
-    int szc[N_POOLS] = { 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56,
-                         64, 72, 80, 88, 96, //#=18
+    static int szc[N_POOLS] = { 8, 12, 16, 20, 24, 28, 32, 36, 40, 44, 48, 52, 56,
+                                64, 72, 80, 88, 96, //#=18
 
-                         112, 128, 144, 160, 176, 192, 208, 224, 240, 256,
+                                112, 128, 144, 160, 176, 192, 208, 224, 240, 256,
 
-                         288, 320, 352, 384, 416, 448, 480, 512,
+                                288, 320, 352, 384, 416, 448, 480, 512,
 
-                         640, 768, 896, 1024,
+                                640, 768, 896, 1024,
 
-                         1536, 2048 };
-    int i,j;
-    for(j=0; j < N_GC_THREADS; j++) {
-        for(i=0; i < N_POOLS; i++) {
-            norm_pools[j][i].osize = szc[i];
-            norm_pools[j][i].pages = NULL;
-            norm_pools[j][i].freelist = NULL;
+                                1536, 2048 };
+    jl_thread_heap_t *h = malloc(sizeof(jl_thread_heap_t));
 
-            ephe_pools[j][i].osize = szc[i];
-            ephe_pools[j][i].pages = NULL;
-            ephe_pools[j][i].freelist = NULL;
-        }
+    int i;
+    for(i=0; i < N_POOLS; i++) {
+        norm_pools[i].osize = szc[i];
+        norm_pools[i].pages = NULL;
+        norm_pools[i].freelist = NULL;
+
+        ephe_pools[i].osize = szc[i];
+        ephe_pools[i].pages = NULL;
+        ephe_pools[i].freelist = NULL;
     }
 
-    htable_new(&finalizer_table, 0);
+    h->pools = &h->norm_pools[0];
+
+    htable_new(&h->finalizer_table, 0);
+    arraylist_new(&h->preserved_values, 0);
+    arraylist_new(&h->weak_refs, 0);
+}
+
+void jl_gc_init(void)
+{
     arraylist_new(&to_finalize, 0);
-    arraylist_new(&preserved_values, 0);
-    arraylist_new(&weak_refs, 0);
 
 #ifdef OBJPROFILE
     htable_new(&obj_counts, 0);

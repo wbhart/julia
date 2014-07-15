@@ -76,9 +76,4 @@
 
 // threading options ----------------------------------------------------------
 
-// size of the thread pool
-#define N_THREAD_POOL 0
-// number of memory pools for lock free pool_alloc
-#define N_GC_THREADS 16
-
 #endif
