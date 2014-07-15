@@ -24,6 +24,24 @@ int jl_n_threads;
 jl_thread_t *jl_thread_pool;
 int finish_thread_pool = 0;
 
+static void thread_run(jl_thread_t *t)
+{
+    jl_value_t **args = (jl_value_t**)alloca(sizeof(jl_value_t*)*jl_tuple_len(t->targs));
+    for(int l=0; l<jl_tuple_len(t->targs); l++)
+        args[l] = jl_tupleref(t->targs,l);
+
+    t->exception = jl_nothing;
+
+    // try/catch
+    if (!jl_setjmp(jl_thread_eh,0)) {
+        jl_apply(t->f,args,jl_tuple_len(t->targs));
+    }
+    else {
+        t->exception = jl_thread_exception_in_transit;
+    }
+    t->busy = 0;
+}
+
 void run_pool_thread(void *t_)
 {
     jl_thread_t *t = (jl_thread_t*)t_;
@@ -40,21 +58,8 @@ void run_pool_thread(void *t_)
         
         uv_mutex_unlock(&t->m);
 
-        jl_value_t **args = (jl_value_t**)alloca(sizeof(jl_value_t*)*jl_tuple_len(t->targs));
-        for(int l=0; l<jl_tuple_len(t->targs); l++)
-            args[l] = jl_tupleref(t->targs,l);
+        thread_run(t);
 
-        t->exception = jl_nothing;
-
-        // try/catch
-        if (!jl_setjmp(jl_thread_eh,0)) {
-            jl_apply(t->f,args,jl_tuple_len(t->targs));
-        }
-        else {
-            t->exception = jl_thread_exception_in_transit;
-        }
-        
-        t->busy = 0;
         uv_cond_signal(&t->c);
         uv_mutex_lock(&t->m);
     }
@@ -81,6 +86,8 @@ void jl_init_threading()
         jl_thread_pool[n].heap = jl_mk_thread_heap();
         if (n > 0)
             uv_thread_create(&jl_thread_pool[n].t, run_pool_thread, &jl_thread_pool[n]);
+        else
+            jl_thread_pool[0].t = jl_main_thread_id;
     }
     jl_thread_id = 0;
     jl_thread_heap = jl_thread_pool[0].heap;
@@ -107,7 +114,7 @@ jl_thread_t *jl_create_thread(jl_function_t* f, jl_tuple_t* targs)
     int nargs = jl_tuple_len(targs);
     
     for(int n=0; n<jl_n_threads; n++) {
-        if (!jl_thread_pool[n].busy &&  uv_mutex_trylock(&jl_thread_pool[n].m) == 0) {
+        if (!jl_thread_pool[n].busy && uv_mutex_trylock(&jl_thread_pool[n].m) == 0) {
             jl_thread_pool[n].busy = 1;
             jl_tuple_t* argtypes = arg_type_tuple(&jl_tupleref(targs,0), nargs);
             jl_thread_pool[n].f = jl_get_specialization(f, argtypes);
@@ -138,12 +145,19 @@ void jl_run_thread(jl_thread_t *t)
     uv_mutex_unlock(&nr_running_threads_mutex);
 
     t->busy = 1;
-    uv_cond_signal(&t->c); // notify thread that it now can proceed
-    uv_mutex_unlock(&t->m);
+    if (t->t != jl_main_thread_id) {
+        uv_cond_signal(&t->c); // notify thread that it now can proceed
+        uv_mutex_unlock(&t->m);
+    }
+    else {
+        thread_run(t);
+    }
 }
 
 void jl_join_thread(jl_thread_t *t)
 {
+    if (t->t == jl_main_thread_id)
+        return;
     uv_mutex_lock(&t->m);
     while (t->busy)
         uv_cond_wait(&t->c, &t->m);

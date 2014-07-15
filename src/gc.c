@@ -94,7 +94,7 @@ static size_t max_collect_interval = 1250000000UL;
 static size_t max_collect_interval =  500000000UL;
 #endif
 static size_t collect_interval = default_collect_interval;
-int jl_in_gc; // referenced from switchto task.c
+int jl_in_gc=0; // referenced from switchto task.c
 
 #ifdef OBJPROFILE
 static htable_t obj_counts;
@@ -1006,8 +1006,8 @@ void jl_gc_collect(void)
         JL_PRINTF(JL_STDERR, "sweep time %.3f ms\n", (jl_hrtime()-t1)*1.0e6);
 #endif
         int nfinal = to_finalize.len;
-        run_finalizers();
         jl_in_gc = 0;
+        run_finalizers();
         JL_SIGATOMIC_END();
         total_gc_time += (jl_hrtime()-t0);
 #if defined(GC_FINAL_STATS)
