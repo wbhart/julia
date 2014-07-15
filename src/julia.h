@@ -1242,6 +1242,10 @@ typedef struct {
     struct _jl_thread_heap_t *heap;
 } jl_thread_t;
 
+extern jl_thread_t *jl_thread_pool;
+extern int jl_n_threads;
+extern __JL_THREAD struct _jl_thread_heap_t *jl_thread_heap;
+
 DLLEXPORT jl_thread_t *jl_create_thread(jl_function_t *f, jl_tuple_t *targs);
 DLLEXPORT void jl_run_thread(jl_thread_t *t);
 DLLEXPORT void jl_join_thread(jl_thread_t *t);
@@ -1283,15 +1287,14 @@ extern long jl_nr_running_threads;
 
 #define JL_LOCK(m) \
   int locked = 0; \
-  if( m ## _thread_id != uv_thread_self() && (jl_main_thread_id != uv_thread_self() || jl_nr_running_threads > 0) ) \
-  { \
+  if (m ## _thread_id != uv_thread_self() && (jl_main_thread_id != uv_thread_self() || jl_nr_running_threads > 0) ) { \
       uv_mutex_lock(& m ## _mutex); \
       locked = 1; \
       m ## _thread_id = uv_thread_self(); \
   }
 
 #define JL_UNLOCK(m) \
-  if(locked) { \
+  if (locked) { \
       m ## _thread_id = -1; \
       uv_mutex_unlock(& m ## _mutex); \
   }

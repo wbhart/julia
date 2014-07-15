@@ -20,8 +20,8 @@ JL_DEFINE_MUTEX(gc)
 JL_DEFINE_MUTEX(codegen)
 JL_DEFINE_MUTEX(nr_running_threads)
 
-int N_THREAD_POOL;
-jl_thread_t *thread_pool;
+int jl_n_threads;
+jl_thread_t *jl_thread_pool;
 int finish_thread_pool = 0;
 
 void run_pool_thread(void *t_)
@@ -61,36 +61,41 @@ void run_pool_thread(void *t_)
     uv_mutex_unlock(&t->m);
 }
 
+struct _jl_thread_heap_t *jl_mk_thread_heap(void);
+
 void jl_init_threading()
 {
-    N_THREAD_POOL = jl_cpu_cores();
-    thread_pool = malloc(N_THREAD_POOL * sizeof(jl_thread_t));
+    jl_n_threads = jl_cpu_cores();
+    jl_thread_pool = (jl_thread_t*)malloc(jl_n_threads * sizeof(jl_thread_t));
 
     uv_mutex_init(&gc_mutex);
     uv_mutex_init(&codegen_mutex);
     uv_mutex_init(&nr_running_threads_mutex);
     jl_main_thread_id = uv_thread_self();
     
-    for(int n=0; n<N_THREAD_POOL; n++) {
-        uv_mutex_init(&thread_pool[n].m);
-        uv_cond_init(&thread_pool[n].c);
-        thread_pool[n].poolid = n;
-        thread_pool[n].busy = 0;
-        thread_pool[n].heap = jl_mk_thread_heap();
-        uv_thread_create(&thread_pool[n].t, run_pool_thread, &thread_pool[n]);
+    for(int n=0; n<jl_n_threads; n++) {
+        uv_mutex_init(&jl_thread_pool[n].m);
+        uv_cond_init(&jl_thread_pool[n].c);
+        jl_thread_pool[n].poolid = n;
+        jl_thread_pool[n].busy = 0;
+        jl_thread_pool[n].heap = jl_mk_thread_heap();
+        if (n > 0)
+            uv_thread_create(&jl_thread_pool[n].t, run_pool_thread, &jl_thread_pool[n]);
     }
+    jl_thread_id = 0;
+    jl_thread_heap = jl_thread_pool[0].heap;
 }
 
 // where to call this ???
 void jl_cleanup_threading()
 {
     finish_thread_pool = true;
-    for(int n=0; n<N_THREAD_POOL; n++) {
-        uv_cond_signal(&thread_pool[n].c);
-        uv_thread_join(&thread_pool[n].t);
+    for(int n=0; n<jl_n_threads; n++) {
+        uv_cond_signal(&jl_thread_pool[n].c);
+        uv_thread_join(&jl_thread_pool[n].t);
         
-        uv_mutex_destroy(&thread_pool[n].m);
-        uv_cond_destroy(&thread_pool[n].c);        
+        uv_mutex_destroy(&jl_thread_pool[n].m);
+        uv_cond_destroy(&jl_thread_pool[n].c);
     }
     
     uv_mutex_destroy(&gc_mutex);
@@ -101,14 +106,14 @@ jl_thread_t *jl_create_thread(jl_function_t* f, jl_tuple_t* targs)
 {
     int nargs = jl_tuple_len(targs);
     
-    for(int n=0; n<N_THREAD_POOL; n++) {
-        if (!thread_pool[n].busy &&  uv_mutex_trylock(&thread_pool[n].m) == 0) {
-            thread_pool[n].busy = 1;
+    for(int n=0; n<jl_n_threads; n++) {
+        if (!jl_thread_pool[n].busy &&  uv_mutex_trylock(&jl_thread_pool[n].m) == 0) {
+            jl_thread_pool[n].busy = 1;
             jl_tuple_t* argtypes = arg_type_tuple(&jl_tupleref(targs,0), nargs);
-            thread_pool[n].f = jl_get_specialization(f, argtypes);
-            jl_compile(thread_pool[n].f); // does this make sense here?
-            thread_pool[n].targs = targs;
-            return &thread_pool[n];
+            jl_thread_pool[n].f = jl_get_specialization(f, argtypes);
+            jl_compile(jl_thread_pool[n].f); // does this make sense here?
+            jl_thread_pool[n].targs = targs;
+            return &jl_thread_pool[n];
         }
     }
     
@@ -139,15 +144,10 @@ void jl_run_thread(jl_thread_t *t)
 
 void jl_join_thread(jl_thread_t *t)
 {
-    if (t->poolid != -1) {
-        uv_mutex_lock(&t->m);
-        while(t->busy)
-            uv_cond_wait(&t->c, &t->m);       
-        uv_mutex_unlock(&t->m);
-    }
-    else {
-        uv_thread_join(&(t->t));
-    }
+    uv_mutex_lock(&t->m);
+    while (t->busy)
+        uv_cond_wait(&t->c, &t->m);
+    uv_mutex_unlock(&t->m);
 
     uv_mutex_lock(&nr_running_threads_mutex);
     jl_nr_running_threads--;
