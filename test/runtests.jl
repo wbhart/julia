@@ -6,10 +6,10 @@ testnames = [
     "functional", "bigint", "sorting", "statistics", "spawn",
     "backtrace", "priorityqueue", "arpack", "file", "suitesparse", "version",
     "resolve", "pollfd", "mpfr", "broadcast", "complex", "socket",
-    "floatapprox", "readdlm", "regex", "float16", "combinatorics",
+    "floatapprox", "regex", "float16", "combinatorics",
     "sysinfo", "rounding", "ranges", "mod2pi", "euler", "show",
     "lineedit", "replcompletions", "repl", "test", "examples", "goto",
-    "crashing", "pimfilter", "threading"
+    "pimfilter", "threading"
 ]
 @unix_only push!(testnames, "unicode")
 
