@@ -5,11 +5,19 @@ using .ARPACK
 eigs(A; args...) = eigs(A, I; args...)
 
 function eigs(A, B;
-              nev::Integer=6, ncv::Integer=max(20,2*nev+1), which::ASCIIString="LM",
+              nev::Integer=6, ncv::Integer=max(20,2*nev+1), which_sym::Symbol=:LM,
               tol=0.0, maxiter::Integer=1000, sigma=nothing, v0::Vector=zeros((0,)),
               ritzvec::Bool=true)
 
     n = chksquare(A)
+
+    if      which_sym==:Largest       which="LM"
+    elseif  which_sym==:Smallest      which="SM"
+    elseif  which_sym==:LargestReal   which="LR"
+    elseif  which_sym==:SmallestReal  which="SR"
+    elseif  which_sym==:LargestImag   which="LI"
+    elseif  which_sym==:SmallestImag  which="SI"
+    else    error("The `which` parameter msut be :LM, :SM, :LR, :SR, :LI, or :SI"); end
 
     T = eltype(A)
     iscmplx = T <: Complex
