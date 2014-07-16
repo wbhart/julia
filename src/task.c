@@ -273,7 +273,7 @@ extern int jl_in_gc;
 static jl_value_t *switchto(jl_task_t *t)
 {
     // prevent threads to switch tasks
-    if( jl_main_thread_id != uv_thread_self())
+    if (jl_main_thread_id != uv_thread_self())
         return jl_nothing;
     if (t->state == done_sym || t->state == failed_sym) {
         jl_task_arg_in_transit = (jl_value_t*)jl_null;
@@ -722,8 +722,7 @@ void NORETURN throw_internal(jl_value_t *e)
     // Threads use a special exit here to tell the main thread that
     // an exception occurred. This means that try/catch should not be
     // used in threads currently.
-    if(jl_main_thread_id != uv_thread_self())
-    {
+    if (jl_main_thread_id != uv_thread_self()) {
         jl_thread_exception_in_transit = e;
         jl_longjmp(jl_thread_eh,1);
     }
@@ -753,8 +752,7 @@ DLLEXPORT void jl_throw(jl_value_t *e)
     // Threads use a special exit here to tell the main thread that
     // an exception occurred. This means that try/catch should not be
     // used in threads currently.
-    if(jl_main_thread_id != uv_thread_self())
-    {
+    if (jl_main_thread_id != uv_thread_self()) {
         jl_thread_exception_in_transit = e;
         jl_longjmp(jl_thread_eh,1);
     } 

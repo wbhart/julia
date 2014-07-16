@@ -10,7 +10,9 @@
 
 // thread ID
 extern __thread int16_t ti_tid;
-
+extern __JL_THREAD struct _jl_thread_heap_t *jl_thread_heap;
+extern struct _jl_thread_heap_t **jl_all_heaps;
+extern jl_gcframe_t ***jl_all_pgcstacks;
 
 // thread state
 enum {

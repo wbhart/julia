@@ -26,12 +26,8 @@ uint64_t jl_main_thread_id = 0;
 
 // locks for Julia's gc and code generation
 // TODO: too coarse-grained
-JL_DEFINE_MUTEX(gc);
+//JL_DEFINE_MUTEX(gc);
 JL_DEFINE_MUTEX(codegen);
-
-// locks for gc pools
-// TODO: try a pool per thread?
-uv_mutex_t gc_pool_mutex[N_GC_THREADS];
 
 // exceptions that happen in threads are caught and thrown in the main thread
 __JL_THREAD jl_jmp_buf jl_thread_eh;
@@ -39,6 +35,11 @@ __JL_THREAD jl_value_t* jl_thread_exception_in_transit;
 
 // thread ID
 __JL_THREAD int16_t ti_tid = 0;
+
+// thread heap
+__JL_THREAD struct _jl_thread_heap_t *jl_thread_heap;
+struct _jl_thread_heap_t **jl_all_heaps;
+jl_gcframe_t ***jl_all_pgcstacks;
 
 // only one thread group for now
 ti_threadgroup_t *tgworld;
@@ -64,7 +65,7 @@ void jl_threading_profile();
 
 // create a thread and affinitize it
 int ti_threadcreate(uint64_t *pthread_id, int proc_num,
-                     void *(*thread_fun)(void *), void *thread_arg)
+                    void *(*thread_fun)(void *), void *thread_arg)
 {
     cpu_set_t cset;
     pthread_attr_t attr;
@@ -99,6 +100,9 @@ void ti_start_threads()
     uint64_t ptid;
     ti_threadarg_t *targ[TI_MAX_THREADS - 1];
 
+    jl_all_heaps = malloc(TI_MAX_THREADS * sizeof(void*));
+    jl_all_pgcstacks = malloc(TI_MAX_THREADS * sizeof(void*));
+
     // current thread will be tid 1; set tid and affinitize to proc 0
     ti_threadsetaffinity(uv_thread_self(), 0);
     ti_initthread(1);
@@ -113,7 +117,7 @@ void ti_start_threads()
 
     // set up the world thread group
     ti_threadgroup_create(TI_MAX_SOCKETS, TI_MAX_CORES,
-            TI_MAX_THREADS_PER_CORE, &tgworld);
+                          TI_MAX_THREADS_PER_CORE, &tgworld);
     for (i = 0;  i < TI_MAX_THREADS;  ++i)
         ti_threadgroup_addthread(tgworld, i + 1, NULL);
     ti_threadgroup_initthread(tgworld, ti_tid);
@@ -145,6 +149,9 @@ void ti_stop_threads()
 void ti_initthread(int16_t tid)
 {
     ti_tid = tid;
+    jl_all_pgcstacks[tid] = &jl_pgcstack;
+    jl_all_heaps[tid] = jl_mk_thread_heap();
+    jl_thread_heap = jl_all_heaps[tid];
 }
 
 
@@ -227,10 +234,6 @@ void jl_init_threading()
     uv_mutex_init(&tgw_alarmlock);
     uv_cond_init(&tgw_alarm);
 
-    int n;
-    for (n = 0;  n < N_GC_THREADS;  n++)
-        uv_mutex_init(gc_pool_mutex + n);
-
     ti_start_threads();
 }
 
@@ -242,10 +245,6 @@ void jl_cleanup_threading()
 
     uv_mutex_destroy(&tgw_alarmlock);
     uv_cond_destroy(&tgw_alarm);
-
-    int n;
-    for (n = 0;  n < N_GC_THREADS;  n++)
-        uv_mutex_destroy(gc_pool_mutex + n);    
 }
 
 

@@ -48,6 +48,7 @@ int  ti_threadgroup_join(ti_threadgroup_t *tg, int16_t ext_tid);
 void ti_threadgroup_barrier(ti_threadgroup_t *tg, int16_t ext_tid);
 int  ti_threadgroup_destroy(ti_threadgroup_t *tg);
 
+extern ti_threadgroup_t *tgworld;
 
 #endif  /* THREADGROUP_H */
 

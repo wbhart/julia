@@ -1024,31 +1024,31 @@ extern DLLEXPORT __JL_THREAD jl_gcframe_t *jl_pgcstack;
 #define JL_GC_PUSH(...)                                                   \
   void *__gc_stkf[] = {(void*)((VA_NARG(__VA_ARGS__)<<1)|1), jl_pgcstack, \
                        __VA_ARGS__};                                      \
-  if(jl_main_thread_id == uv_thread_self()) { jl_pgcstack = (jl_gcframe_t*)__gc_stkf; }
+  jl_pgcstack = (jl_gcframe_t*)__gc_stkf;
 
 #define JL_GC_PUSH1(arg1)                                                 \
   void *__gc_stkf[] = {(void*)3, jl_pgcstack, arg1};                      \
-  if(jl_main_thread_id == uv_thread_self()) { jl_pgcstack = (jl_gcframe_t*)__gc_stkf; }
+  jl_pgcstack = (jl_gcframe_t*)__gc_stkf;
 
 #define JL_GC_PUSH2(arg1, arg2)                                           \
   void *__gc_stkf[] = {(void*)5, jl_pgcstack, arg1, arg2};                \
-  if(jl_main_thread_id == uv_thread_self()) { jl_pgcstack = (jl_gcframe_t*)__gc_stkf; }
+  jl_pgcstack = (jl_gcframe_t*)__gc_stkf;
 
 #define JL_GC_PUSH3(arg1, arg2, arg3)                                     \
   void *__gc_stkf[] = {(void*)7, jl_pgcstack, arg1, arg2, arg3};          \
-  if(jl_main_thread_id == uv_thread_self()) { jl_pgcstack = (jl_gcframe_t*)__gc_stkf; }
+  jl_pgcstack = (jl_gcframe_t*)__gc_stkf;
 
 #define JL_GC_PUSH4(arg1, arg2, arg3, arg4)                               \
   void *__gc_stkf[] = {(void*)9, jl_pgcstack, arg1, arg2, arg3, arg4};    \
-  if(jl_main_thread_id == uv_thread_self()) { jl_pgcstack = (jl_gcframe_t*)__gc_stkf; }
+  jl_pgcstack = (jl_gcframe_t*)__gc_stkf;
 
 #define JL_GC_PUSHARGS(rts_var,n)                               \
   rts_var = ((jl_value_t**)alloca(((n)+2)*sizeof(jl_value_t*)))+2;    \
   ((void**)rts_var)[-2] = (void*)(((size_t)n)<<1);              \
   ((void**)rts_var)[-1] = jl_pgcstack;                          \
-  if(jl_main_thread_id == uv_thread_self()) { jl_pgcstack = (jl_gcframe_t*)&(((void**)rts_var)[-2]); }
+  jl_pgcstack = (jl_gcframe_t*)&(((void**)rts_var)[-2])
 
-#define JL_GC_POP() if(jl_main_thread_id == uv_thread_self()) {jl_pgcstack = jl_pgcstack->prev;}
+#define JL_GC_POP() (jl_pgcstack = jl_pgcstack->prev)
 
 void jl_gc_init(void);
 void jl_gc_setmark(jl_value_t *v);
