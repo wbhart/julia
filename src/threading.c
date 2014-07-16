@@ -256,6 +256,13 @@ int16_t jl_threadid()
 }
 
 
+// return thread's thread group
+void *jl_threadgroup()
+{
+    return (void *)tgworld;
+}
+
+
 // utility
 void jl_cpu_pause()
 {

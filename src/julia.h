@@ -1229,6 +1229,7 @@ void jl_longjmp(jmp_buf _Buf,int _Value);
 // threading ------------------------------------------------------------------
 
 DLLEXPORT int16_t jl_threadid(void);
+DLLEXPORT void *jl_threadgroup(void);
 DLLEXPORT void jl_cpu_pause(void);
 DLLEXPORT jl_value_t *jl_threading_run(jl_function_t *fun, jl_tuple_t *args);
 DLLEXPORT void jl_threading_profile();
