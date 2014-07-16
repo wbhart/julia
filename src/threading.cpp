@@ -158,12 +158,12 @@ void jl_run_thread(jl_thread_t *t)
 
 void jl_join_thread(jl_thread_t *t)
 {
-    if (t->t == jl_main_thread_id)
-        return;
-    uv_mutex_lock(&t->m);
-    while (t->busy)
-        uv_cond_wait(&t->c, &t->m);
-    uv_mutex_unlock(&t->m);
+    if (t->t != jl_main_thread_id) {
+        uv_mutex_lock(&t->m);
+        while (t->busy)
+            uv_cond_wait(&t->c, &t->m);
+        uv_mutex_unlock(&t->m);
+    }
 
     uv_mutex_lock(&nr_running_threads_mutex);
     jl_nr_running_threads--;

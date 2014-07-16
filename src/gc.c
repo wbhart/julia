@@ -969,6 +969,10 @@ static void print_obj_profile(void)
 }
 #endif
 
+static volatile int gc_barrier=0;
+uv_cond_t gc_done_c;
+uv_mutex_t gc_done_m;
+
 void jl_gc_collect(void)
 {
     if (!is_gc_enabled) {
@@ -978,8 +982,19 @@ void jl_gc_collect(void)
 
     uv_mutex_lock(&gc_mutex);
 
-    if (allocd_bytes == 0) {
-        uv_mutex_unlock(&gc_mutex);
+    int i_gc = (gc_barrier == 0);
+    gc_barrier++;
+    uv_mutex_unlock(&gc_mutex);
+
+    if (i_gc) {
+        while (gc_barrier < jl_nr_running_threads)
+            ;
+        gc_barrier = 0;
+    }
+    else {
+        uv_mutex_lock(&gc_done_m);
+        uv_cond_wait(&gc_done_c, &gc_done_m);
+        uv_mutex_unlock(&gc_done_m);
         return;
     }
 
@@ -1050,7 +1065,7 @@ void jl_gc_collect(void)
     }
 
     allocd_bytes = 0;
-    uv_mutex_unlock(&gc_mutex);
+    uv_cond_broadcast(&gc_done_c);
 }
 
 // allocator entry points
@@ -1191,6 +1206,9 @@ void jl_gc_init(void)
     if (maxmem > max_collect_interval)
         max_collect_interval = maxmem;
 #endif
+
+    uv_mutex_init(&gc_done_m);
+    uv_cond_init(&gc_done_c);
 }
 
 // GC summary stats

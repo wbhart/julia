@@ -168,7 +168,7 @@ let
 end
 
 ### Exception test
-
+#=
 function i_will_throw() 
     error("An error in thread!")
 end
@@ -191,7 +191,7 @@ let N=100
 
     @test nthrows == N
 end
-
+=#
 
 ### Median filter
 
