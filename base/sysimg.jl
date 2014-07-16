@@ -268,6 +268,7 @@ include("graphics.jl")
 include("profile.jl")
 importall .Profile
 
+# threading
 include("threading.jl")
 
 function __init__()

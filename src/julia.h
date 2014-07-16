@@ -1018,7 +1018,7 @@ typedef struct _jl_gcframe_t {
 // jl_value_t *x=NULL, *y=NULL; JL_GC_PUSH(&x, &y);
 // x = f(); y = g(); foo(x, y)
 
-extern DLLEXPORT long jl_main_thread_id;
+extern DLLEXPORT uint64_t jl_main_thread_id;
 extern DLLEXPORT __JL_THREAD jl_gcframe_t *jl_pgcstack;
 
 #define JL_GC_PUSH(...)                                                   \
@@ -1226,84 +1226,93 @@ void jl_longjmp(jmp_buf _Buf,int _Value);
         for (i__ca=1, jl_eh_restore_state(&__eh); i__ca; i__ca=0)
 #endif
 
-// Threads
+// threading ------------------------------------------------------------------
 
-struct _jl_thread_heap_t;
+DLLEXPORT int16_t jl_threadid(void);
+DLLEXPORT void *jl_threadgroup(void);
+DLLEXPORT void jl_cpu_pause(void);
+DLLEXPORT jl_value_t *jl_threading_run(jl_function_t *fun, jl_tuple_t *args);
+DLLEXPORT void jl_threading_profile();
 
-typedef struct {
-    uv_thread_t t;
-    uv_mutex_t m;
-    uv_cond_t c;
-    int busy;
-    int poolid;
-    jl_value_t *exception;
-    jl_function_t *f;
-    jl_tuple_t *targs;
-    struct _jl_thread_heap_t *heap;
-    jl_gcframe_t **ppgcstack;
-} jl_thread_t;
-
-extern jl_thread_t *jl_thread_pool;
-extern int jl_n_threads;
-extern __JL_THREAD struct _jl_thread_heap_t *jl_thread_heap;
-
-DLLEXPORT jl_thread_t *jl_create_thread(jl_function_t *f, jl_tuple_t *targs);
-DLLEXPORT void jl_run_thread(jl_thread_t *t);
-DLLEXPORT void jl_join_thread(jl_thread_t *t);
-DLLEXPORT void jl_destroy_thread(jl_thread_t *t);
-DLLEXPORT jl_value_t *jl_thread_exception(jl_thread_t *t);
-
-DLLEXPORT uv_mutex_t *jl_create_mutex();
-DLLEXPORT void jl_lock_mutex(uv_mutex_t *m);
-DLLEXPORT void jl_unlock_mutex(uv_mutex_t *m);
-DLLEXPORT void jl_destroy_mutex(uv_mutex_t *m);
-
-extern long jl_nr_running_threads;
-
-// TODO: Implement a fallback that uses a mutex
-#if defined( __GNUC__ )
-#  define JL_ATOMIC_FETCH_AND_ADD(a,b) __sync_fetch_and_add(& a, b )
-#elif defined( _WIN32 )
-#  define JL_ATOMIC_FETCH_AND_ADD(a,b) _InterlockedExchangeAdd ((volatile LONG*) & a, b);
+#if __GNUC__
+#  define JL_ATOMIC_FETCH_AND_ADD(a,b)                                    \
+       __sync_fetch_and_add(&(a), (b))
+#  define JL_ATOMIC_COMPARE_AND_SWAP(a,b,c)                               \
+       __sync_bool_compare_and_swap(&(a), (b), (c)) 
+#  define JL_ATOMIC_TEST_AND_SET(a)                                       \
+       __sync_lock_test_and_set(&(a), 1)
+#  define JL_ATOMIC_RELEASE(a)                                            \
+       __sync_lock_release(&(a))
+#elif _WIN32
+#  define JL_ATOMIC_FETCH_AND_ADD(a,b)                                    \
+       _InterlockedExchangeAdd((volatile LONG *)&(a), (b))
+#  define JL_ATOMIC_COMPARE_AND_SWAP(a,b,c)                               \
+       _InterlockedCompareExchange64(&(a), (c), (b)) 
+#  define JL_ATOMIC_TEST_AND_SET(a)                                       \
+       _InterlockedExchange64(&(a), 1)
+#  define JL_ATOMIC_RELEASE(a)                                            \
+       _InterlockedExchange64(&(a), 0)
 #else
 #  error "No atomic operations supported."
 #endif
 
-#define JL_DEFINE_MUTEX_EXT(m) \
-  extern uv_mutex_t m ## _mutex; \
-  extern long m ## _thread_id;
+#if 0
+#define JL_DEFINE_MUTEX(m)                                                \
+    uv_mutex_t m ## _mutex;                                               \
+    uint64_t m ## _thread_id = -1;
 
-#define JL_DEFINE_MUTEX(m) \
-  uv_mutex_t m ## _mutex; \
-  long m ## _thread_id;
+#define JL_DEFINE_MUTEX_EXT(m)                                            \
+    extern uv_mutex_t m ## _mutex;                                        \
+    extern uint64_t m ## _thread_id;
 
-// The macros JL_LOCK and JL_UNLOCK are used to prevent different threads to execute the same code
-// at the same time. They are implemented in a recursive manner so that a thread will not deadlock
-// when it already holds the lock.
-//
-// There is a special case that the main thread should not acquire locks when no further threads are
-// running. If this is not done the threads will deadlock when running code from the REPL as the main
-// thread holds the lock when spawning the thread. However, when the threads are running, the main thread
-// will also acquire the lock in order to prevent race consitions
+#define JL_LOCK(m)                                                        \
+    int m ## locked = 0;                                                  \
+    if (m ## _thread_id != uv_thread_self()) {                            \
+        uv_mutex_lock(&m ## _mutex);                                      \
+        m ## locked = 1;                                                  \
+        m ## _thread_id = uv_thread_self();                               \
+    }
 
-#define JL_LOCK(m) \
-  int locked = 0; \
-  if (m ## _thread_id != uv_thread_self() && (jl_main_thread_id != uv_thread_self() || jl_nr_running_threads > 0) ) { \
-      uv_mutex_lock(& m ## _mutex); \
-      locked = 1; \
-      m ## _thread_id = uv_thread_self(); \
-  }
+#define JL_UNLOCK(m)                                                      \
+    if (m ## locked) {                                                    \
+        m ## _thread_id = -1;                                             \
+        m ## locked = 0;                                                  \
+        uv_mutex_unlock(&m ## _mutex);                                    \
+    }
+#else
+#define JL_DEFINE_MUTEX(m)                                                \
+    uint64_t volatile m ## _mutex = 0;                                    \
+    int32_t m ## _lock_count = 0;
 
-#define JL_UNLOCK(m) \
-  if (locked) { \
-      m ## _thread_id = -1; \
-      uv_mutex_unlock(& m ## _mutex); \
-  }
+#define JL_DEFINE_MUTEX_EXT(m)                                            \
+    extern uint64_t volatile m ## _mutex;                                 \
+    extern int32_t m ## _lock_count;
 
-// This is the thread local exception handler that is used to catch exceptions in threads and rethrow
-// them in the main thread when the threads are joining.
+#define JL_LOCK(m)                                                        \
+    if (m ## _mutex == uv_thread_self())                                  \
+        ++m ## _lock_count;                                               \
+    else {                                                                \
+        for (; ;) {                                                       \
+            if (m ## _mutex == 0 &&                                       \
+                    JL_ATOMIC_COMPARE_AND_SWAP(m ## _mutex, 0,            \
+                                               uv_thread_self())) {       \
+                m ## _lock_count = 1;                                     \
+                break;                                                    \
+            }                                                             \
+            jl_cpu_pause();                                               \
+        }                                                                 \
+    }
+
+#define JL_UNLOCK(m)                                                      \
+    if (m ## _mutex == uv_thread_self()) {                                \
+        --m ## _lock_count;                                               \
+        if (m ## _lock_count == 0)                                        \
+            JL_ATOMIC_COMPARE_AND_SWAP(m ## _mutex, uv_thread_self(), 0); \
+    }
+#endif
+
 extern __JL_THREAD jl_jmp_buf jl_thread_eh;
-extern __JL_THREAD jl_value_t* jl_thread_exception_in_transit;
+extern __JL_THREAD jl_value_t *jl_thread_exception_in_transit;
 
 // I/O system -----------------------------------------------------------------
 
