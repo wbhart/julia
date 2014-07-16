@@ -145,6 +145,8 @@ void ti_stop_threads()
 }
 
 
+struct _jl_thread_heap_t *jl_mk_thread_heap(void);
+
 // interface to thread function: set the calling thread's global ID
 void ti_initthread(int16_t tid)
 {
