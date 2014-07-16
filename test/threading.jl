@@ -250,7 +250,7 @@ let N = 1000
     println("median_filter - 1 thread")
     @time D = pmedian_filter(A, filterSize, numthreads=1) 
     println("median_filter - 2 threads")
-    @time C = pmedian_filter(A, filterSize, numthreads=2) 
+    @time C = pmedian_filter(A, filterSize, numthreads=2)
 
     @test B == C
 end

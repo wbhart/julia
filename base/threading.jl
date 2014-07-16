@@ -84,7 +84,7 @@ function parapply(f::Function, r::UnitRange, args...; preapply::Bool = true, num
     chunk = ifloor(len / numthreads)
     rem = len
 
-    gc_disable()
+    #gc_disable()
     for i=0:(numthreads-2)
         t[i+1] = Base.Thread(f,range(int(st+i*chunk), chunk), args...)
         rem -= chunk
@@ -99,6 +99,6 @@ function parapply(f::Function, r::UnitRange, args...; preapply::Bool = true, num
         Base.join(t[i])
     end
 
-    gc_enable()
+    #gc_enable()
     #gc()
 end

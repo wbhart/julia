@@ -1019,7 +1019,7 @@ typedef struct _jl_gcframe_t {
 // x = f(); y = g(); foo(x, y)
 
 extern DLLEXPORT long jl_main_thread_id;
-extern DLLEXPORT jl_gcframe_t *jl_pgcstack;
+extern DLLEXPORT __JL_THREAD jl_gcframe_t *jl_pgcstack;
 
 #define JL_GC_PUSH(...)                                                   \
   void *__gc_stkf[] = {(void*)((VA_NARG(__VA_ARGS__)<<1)|1), jl_pgcstack, \
@@ -1240,6 +1240,7 @@ typedef struct {
     jl_function_t *f;
     jl_tuple_t *targs;
     struct _jl_thread_heap_t *heap;
+    jl_gcframe_t **ppgcstack;
 } jl_thread_t;
 
 extern jl_thread_t *jl_thread_pool;

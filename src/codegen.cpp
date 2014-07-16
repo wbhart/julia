@@ -3989,7 +3989,8 @@ static void init_julia_llvm_env(Module *m)
     jlpgcstack_var =
         new GlobalVariable(*m, jl_ppvalue_llvmt,
                            false, GlobalVariable::ExternalLinkage,
-                           NULL, "jl_pgcstack");
+                           NULL, "jl_pgcstack", NULL,
+                           GlobalValue::GeneralDynamicTLSModel);
     add_named_global(jlpgcstack_var, (void*)&jl_pgcstack);
 #endif
 

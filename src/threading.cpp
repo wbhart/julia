@@ -47,6 +47,7 @@ void run_pool_thread(void *t_)
     jl_thread_t *t = (jl_thread_t*)t_;
     jl_thread_id = t->poolid;
     jl_thread_heap = t->heap;
+    t->ppgcstack = &jl_pgcstack;
     uv_mutex_lock(&t->m);
     while (true) {
         // wait for the next task
@@ -86,11 +87,11 @@ void jl_init_threading()
         jl_thread_pool[n].heap = jl_mk_thread_heap();
         if (n > 0)
             uv_thread_create(&jl_thread_pool[n].t, run_pool_thread, &jl_thread_pool[n]);
-        else
-            jl_thread_pool[0].t = jl_main_thread_id;
     }
     jl_thread_id = 0;
     jl_thread_heap = jl_thread_pool[0].heap;
+    jl_thread_pool[0].t = jl_main_thread_id;
+    jl_thread_pool[0].ppgcstack = &jl_pgcstack;
 }
 
 // where to call this ???
@@ -113,7 +114,7 @@ jl_thread_t *jl_create_thread(jl_function_t* f, jl_tuple_t* targs)
 {
     int nargs = jl_tuple_len(targs);
     
-    for(int n=0; n<jl_n_threads; n++) {
+    for(int n=jl_n_threads-1; n>=0; n--) {
         if (!jl_thread_pool[n].busy && uv_mutex_trylock(&jl_thread_pool[n].m) == 0) {
             jl_thread_pool[n].busy = 1;
             jl_tuple_t* argtypes = arg_type_tuple(&jl_tupleref(targs,0), nargs);
@@ -150,6 +151,7 @@ void jl_run_thread(jl_thread_t *t)
         uv_mutex_unlock(&t->m);
     }
     else {
+        uv_mutex_unlock(&t->m);
         thread_run(t);
     }
 }

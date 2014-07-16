@@ -343,7 +343,7 @@ static void run_finalizers(void)
             ff = (jl_value_t*)ptrhash_get(&jl_thread_pool[t].heap->finalizer_table, o);
         } while (ff == HT_NOTFOUND);
         //assert(ff != HT_NOTFOUND);
-        assert(t <= jl_n_threads);
+        assert(t < jl_n_threads);
         ptrhash_remove(&jl_thread_pool[t].heap->finalizer_table, o);
         run_finalizer((jl_value_t*)o, ff);
     }
@@ -720,7 +720,8 @@ static void gc_mark_task(jl_task_t *ta, int d)
         ptrint_t offset;
         if (ta == jl_current_task) {
             offset = 0;
-            gc_mark_stack(jl_pgcstack, offset, d);
+            for(int t=0; t < jl_n_threads; t++)
+                gc_mark_stack(*jl_thread_pool[t].ppgcstack, offset, d);
         }
         else {
             offset = (char *)ta->stkbuf - ((char *)ta->stackbase - ta->ssize);
@@ -970,20 +971,25 @@ static void print_obj_profile(void)
 
 void jl_gc_collect(void)
 {
-    size_t actual_allocd;
-    int was_in = JL_ATOMIC_FETCH_AND_ADD(jl_in_gc, 1);
-    if (was_in) {
-        // wait for gc to end
-        uv_mutex_lock(&gc_mutex);
+    if (!is_gc_enabled) {
+        allocd_bytes = 0;
+        return;
+    }
+
+    uv_mutex_lock(&gc_mutex);
+
+    if (allocd_bytes == 0) {
         uv_mutex_unlock(&gc_mutex);
         return;
     }
-    uv_mutex_lock(&gc_mutex);
+
+    jl_in_gc = 1;
+
+    size_t actual_allocd;
 
  gc_collect_top:
     actual_allocd = allocd_bytes;
     total_allocd_bytes += allocd_bytes;
-    allocd_bytes = 0;
     if (is_gc_enabled) {
         JL_SIGATOMIC_BEGIN();
         uint64_t t0 = jl_hrtime();
@@ -1007,7 +1013,9 @@ void jl_gc_collect(void)
 #endif
         int nfinal = to_finalize.len;
         jl_in_gc = 0;
+        jl_gc_disable();
         run_finalizers();
+        jl_gc_enable();
         JL_SIGATOMIC_END();
         total_gc_time += (jl_hrtime()-t0);
 #if defined(GC_FINAL_STATS)
@@ -1041,6 +1049,7 @@ void jl_gc_collect(void)
         jl_in_gc = 0;
     }
 
+    allocd_bytes = 0;
     uv_mutex_unlock(&gc_mutex);
 }
 

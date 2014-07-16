@@ -151,7 +151,7 @@ jl_task_t *jl_root_task;
 jl_value_t * volatile jl_task_arg_in_transit;
 jl_value_t *jl_exception_in_transit;
 #ifdef JL_GC_MARKSWEEP
-jl_gcframe_t *jl_pgcstack = NULL;
+__JL_THREAD jl_gcframe_t *jl_pgcstack = NULL;
 #endif
 
 static void start_task(jl_task_t *t);
