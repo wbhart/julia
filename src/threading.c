@@ -234,6 +234,8 @@ void *ti_threadfun(void *arg)
 void jl_init_threading()
 {
     jl_n_threads = jl_cpu_cores();
+    if (jl_n_threads > TI_MAX_THREADS)
+        jl_n_threads = TI_MAX_THREADS;
 
     jl_main_thread_id = uv_thread_self();
 
