@@ -343,7 +343,7 @@ static void run_finalizers(void)
             ff = (jl_value_t*)ptrhash_get(&jl_all_heaps[t]->finalizer_table, o);
         } while (ff == HT_NOTFOUND);
         //assert(ff != HT_NOTFOUND);
-        assert(t < TI_MAX_THREADS);
+        assert(t < jl_n_threads);
         ptrhash_remove(&jl_all_heaps[t]->finalizer_table, o);
         run_finalizer((jl_value_t*)o, ff);
     }
@@ -352,7 +352,7 @@ static void run_finalizers(void)
 
 void jl_gc_run_all_finalizers(void)
 {
-    for(int t=0; t < TI_MAX_THREADS; t++) {
+    for(int t=0; t < jl_n_threads; t++) {
         htable_t *ft = &jl_all_heaps[t]->finalizer_table;
         for(size_t i=0; i < ft->size; i+=2) {
             jl_value_t *f = (jl_value_t*)ft->table[i+1];
@@ -628,7 +628,7 @@ extern void jl_unmark_symbols(void);
 static void gc_sweep(void)
 {
     int t, i;
-    for(t=0; t < TI_MAX_THREADS; t++) {
+    for(t=0; t < jl_n_threads; t++) {
         jl_thread_heap_t *h = jl_all_heaps[t];
         sweep_malloced_arrays(h);
         sweep_big(h);
@@ -720,7 +720,7 @@ static void gc_mark_task(jl_task_t *ta, int d)
         ptrint_t offset;
         if (ta == jl_current_task) {
             offset = 0;
-            for(int t=0; t < TI_MAX_THREADS; t++)
+            for(int t=0; t < jl_n_threads; t++)
                 gc_mark_stack(*jl_all_pgcstacks[t], offset, d);
         }
         else {
@@ -888,7 +888,7 @@ static void gc_mark(void)
 
     // stuff randomly preserved
     int t;
-    for(t=0; t < TI_MAX_THREADS; t++) {
+    for(t=0; t < jl_n_threads; t++) {
         arraylist_t *pv = &jl_all_heaps[t]->preserved_values;
         for(i=0; i < pv->len; i++) {
             gc_push_root((jl_value_t*)pv->items[i], 0);
@@ -904,7 +904,7 @@ static void gc_mark(void)
 
     // find unmarked objects that need to be finalized.
     // this must happen last.
-    for(t=0; t < TI_MAX_THREADS; t++) {
+    for(t=0; t < jl_n_threads; t++) {
         htable_t *ft = &jl_all_heaps[t]->finalizer_table;
         for(i=0; i < ft->size; i+=2) {
             if (ft->table[i+1] != HT_NOTFOUND) {
@@ -1005,7 +1005,7 @@ void jl_gc_collect(void)
         uint64_t t1 = jl_hrtime();
 #endif
         int t;
-        for(t=0; t < TI_MAX_THREADS; t++)
+        for(t=0; t < jl_n_threads; t++)
             sweep_weak_refs(jl_all_heaps[t]);
         gc_sweep();
 #ifdef GCTIME

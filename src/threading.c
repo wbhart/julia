@@ -52,6 +52,7 @@ uv_cond_t  tgw_alarm;
 // TODO: should be in the thread group?
 ti_threadwork_t threadwork;
 
+int jl_n_threads;  // # threads we're actually using
 
 #if PROFILE_JL_THREADING
 uint64_t prep_ticks;
@@ -108,7 +109,7 @@ void ti_start_threads()
     ti_initthread(0);
 
     // create threads on correct procs
-    for (i = 0;  i < TI_MAX_THREADS - 1;  ++i) {
+    for (i = 0;  i < jl_n_threads - 1;  ++i) {
         targ[i] = (ti_threadarg_t *)malloc(sizeof (ti_threadarg_t));
         targ[i]->state = TI_THREAD_INIT;
         targ[i]->tid = i + 1;
@@ -118,12 +119,12 @@ void ti_start_threads()
     // set up the world thread group
     ti_threadgroup_create(TI_MAX_SOCKETS, TI_MAX_CORES,
                           TI_MAX_THREADS_PER_CORE, &tgworld);
-    for (i = 0;  i < TI_MAX_THREADS;  ++i)
+    for (i = 0;  i < jl_n_threads;  ++i)
         ti_threadgroup_addthread(tgworld, i, NULL);
     ti_threadgroup_initthread(tgworld, ti_tid);
 
     // give the threads the world thread group; they will block waiting for fork
-    for (i = 0;  i < TI_MAX_THREADS - 1;  ++i) {
+    for (i = 0;  i < jl_n_threads - 1;  ++i) {
         targ[i]->tg = tgworld;
         cpu_sfence();
         targ[i]->state = TI_THREAD_WORK;
@@ -233,6 +234,8 @@ void *ti_threadfun(void *arg)
 // interface to Julia; sets up to make the runtime thread-safe
 void jl_init_threading()
 {
+    jl_n_threads = jl_cpu_cores();
+
     jl_main_thread_id = uv_thread_self();
 
     uv_mutex_init(&tgw_alarmlock);
@@ -343,14 +346,14 @@ void ti_timings(uint64_t *times, uint64_t *min, uint64_t *max, uint64_t *avg)
     int i;
     *min = UINT64_MAX;
     *max = *avg = 0;
-    for (i = 0;  i < TI_MAX_THREADS;  i++) {
+    for (i = 0;  i < jl_n_threads;  i++) {
         if (times[i] < *min)
             *min = times[i];
         if (times[i] > *max)
             *max = times[i];
         *avg += times[i];
     }
-    *avg /= TI_MAX_THREADS;
+    *avg /= jl_n_threads;
 }
 
 #define TICKS_TO_SECS(t)        (((double)(t)) / (2.7 * 1e9))

@@ -14,6 +14,8 @@ extern __JL_THREAD struct _jl_thread_heap_t *jl_thread_heap;
 extern struct _jl_thread_heap_t **jl_all_heaps;
 extern jl_gcframe_t ***jl_all_pgcstacks;
 
+extern int jl_n_threads;  // # threads we're actually using
+
 // thread state
 enum {
     TI_THREAD_INIT,
