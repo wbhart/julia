@@ -1,36 +1,23 @@
 using Base.Test
 using Base.Threading
 
-expd = zeros(Int16, Threading.num_threads)
-for i = 1:Threading.num_threads
-    expd[i] = Threading.num_threads - i + 1
-end
+nthreads = maxthreads()
 
-arr = zeros(Int16, Threading.num_threads)
-#println(arr)
+# test 1
+expected = [nthreads - i + 1 for i in 1:nthreads]
+
+arr = zeros(Int16, nthreads)
 
 function foo(A)
-    @parallel_all begin
+    @parblock begin
+	tid = threadid()
         A[tid] = 17 - tid
     end
 end
 
-function bar(baz)
-    @parallel_all begin
-        baz = baz + 1
-    end
-    return baz
-end
-
-@parallel_start
-
 foo(arr)
-@test arr == expd
+@test arr == expected
 
-baz = 0
-baz = bar(baz)
 
-@parallel_stop
-
-println(baz)
+# test 2 (from tknopp)
 

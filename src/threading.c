@@ -252,6 +252,13 @@ void jl_cleanup_threading()
 }
 
 
+// return maximum number of threads
+int16_t jl_maxthreads()
+{
+    return TI_MAX_THREADS;
+}
+
+
 // return calling thread's ID
 int16_t jl_threadid()
 {
@@ -282,9 +289,6 @@ jl_value_t *jl_threading_run(jl_function_t *f, jl_tuple_t *args)
 #endif
 
     size_t nargs = jl_tuple_len(args);
-    if (nargs < 1)
-        jl_error("wrong number of arguments");
-
     jl_tuple_t *argtypes = arg_type_tuple(&jl_tupleref(args, 0), nargs);
     jl_function_t *fun = jl_get_specialization(f, argtypes);
     if (fun == NULL)
