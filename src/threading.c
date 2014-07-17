@@ -52,7 +52,7 @@ uv_cond_t  tgw_alarm;
 // TODO: should be in the thread group?
 ti_threadwork_t threadwork;
 
-int jl_n_threads;  // # threads we're actually using
+DLLEXPORT int jl_n_threads;  // # threads we're actually using
 
 #if PROFILE_JL_THREADING
 uint64_t prep_ticks;
@@ -117,8 +117,7 @@ void ti_start_threads()
     }
 
     // set up the world thread group
-    ti_threadgroup_create(TI_MAX_SOCKETS, TI_MAX_CORES,
-                          TI_MAX_THREADS_PER_CORE, &tgworld);
+    ti_threadgroup_create(1, jl_n_threads, 1, &tgworld);
     for (i = 0;  i < jl_n_threads;  ++i)
         ti_threadgroup_addthread(tgworld, i, NULL);
     ti_threadgroup_initthread(tgworld, ti_tid);

@@ -1,8 +1,10 @@
 module Threading
 
-export threadid, @parblock, @parfun
+export threadid, nthreads, @parblock, @parfun
 
-threadid() = ccall(:jl_threadid, Int16, ())
+threadid() = int(ccall(:jl_threadid, Int16, ())+1)
+
+nthreads() = int(unsafe_load(cglobal(:jl_n_threads, Cint)))
 
 macro parblock(args...)
     na = length(args)
