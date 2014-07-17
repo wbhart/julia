@@ -39,6 +39,7 @@ int ti_threadgroup_create(uint8_t num_sockets, uint8_t num_cores,
     for (i = 0;  i < num_threads;  i++)
         tg->thread_sense[i] = NULL;
     tg->group_sense = 0;
+    tg->forked = 0;
 
     pthread_mutex_init(&tg->alarm_lock, NULL);
     pthread_cond_init(&tg->alarm, NULL);
@@ -125,6 +126,7 @@ int ti_threadgroup_fork(ti_threadgroup_t *tg, int16_t ext_tid,
     if (tg->tid_map[ext_tid] == 0) {
         tg->envelope = bcast_val ? *bcast_val : NULL;
         cpu_sfence();
+	tg->forked = 1;
         tg->group_sense = tg->thread_sense[0]->sense;
 
 	// if it's possible that threads are sleeping, signal them
@@ -174,6 +176,7 @@ int ti_threadgroup_join(ti_threadgroup_t *tg, int16_t ext_tid)
             while (tg->thread_sense[i]->sense == tg->group_sense)
                 cpu_pause();
         }
+	tg->forked = 0;
     }
 
     return 0;
@@ -182,6 +185,9 @@ int ti_threadgroup_join(ti_threadgroup_t *tg, int16_t ext_tid)
 
 void ti_threadgroup_barrier(ti_threadgroup_t *tg, int16_t ext_tid)
 {
+    if (tg->tid_map[ext_tid] == 0  &&  !tg->forked)
+	return;
+
     ti_threadgroup_join(tg, ext_tid);
     ti_threadgroup_fork(tg, ext_tid, NULL);
 }
