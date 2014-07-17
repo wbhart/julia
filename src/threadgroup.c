@@ -58,17 +58,17 @@ int ti_threadgroup_create(uint8_t num_sockets, uint8_t num_cores,
 
 
 int ti_threadgroup_addthread(ti_threadgroup_t *tg, int16_t ext_tid,
-                              int16_t *tgtid)
+                             int16_t *tgtid)
 {
-    if (ext_tid < 1 || ext_tid > TI_MAX_THREADS)
+    if (ext_tid < 0 || ext_tid >= TI_MAX_THREADS)
         return -1;
-    if (tg->tid_map[ext_tid - 1] != -1)
+    if (tg->tid_map[ext_tid] != -1)
         return -2;
     if (tg->added_threads == tg->num_threads)
         return -3;
 
-    tg->tid_map[ext_tid - 1] = tg->added_threads++;
-    if (tgtid) *tgtid = tg->tid_map[ext_tid - 1];
+    tg->tid_map[ext_tid] = tg->added_threads++;
+    if (tgtid) *tgtid = tg->tid_map[ext_tid];
 
     return 0;
 }
@@ -78,35 +78,35 @@ int ti_threadgroup_initthread(ti_threadgroup_t *tg, int16_t ext_tid)
 {
     ti_thread_sense_t *ts;
 
-    if (ext_tid < 1 || ext_tid > TI_MAX_THREADS)
+    if (ext_tid < 0 || ext_tid >= TI_MAX_THREADS)
         return -1;
-    if (tg->thread_sense[tg->tid_map[ext_tid - 1]] != NULL)
+    if (tg->thread_sense[tg->tid_map[ext_tid]] != NULL)
         return -2;
     if (tg->num_threads == 0)
         return -3;
 
     ts = (ti_thread_sense_t *)_mm_malloc(sizeof (ti_thread_sense_t), 64);
     ts->sense = 1;
-    tg->thread_sense[tg->tid_map[ext_tid - 1]] = ts;
+    tg->thread_sense[tg->tid_map[ext_tid]] = ts;
 
     return 0;
 }
 
 
 int ti_threadgroup_member(ti_threadgroup_t *tg, int16_t ext_tid,
-                           int16_t *tgtid)
+                          int16_t *tgtid)
 {
-    if (ext_tid < 1 || ext_tid > TI_MAX_THREADS)
+    if (ext_tid < 0 || ext_tid >= TI_MAX_THREADS)
         return -1;
     if (tg == NULL) {
         if (tgtid) *tgtid = -1;
         return -2;
     }
-    if (tg->tid_map[ext_tid - 1] == -1) {
+    if (tg->tid_map[ext_tid] == -1) {
         if (tgtid) *tgtid = -1;
         return -3;
     }
-    if (tgtid) *tgtid = tg->tid_map[ext_tid - 1];
+    if (tgtid) *tgtid = tg->tid_map[ext_tid];
 
     return 0;
 }
@@ -122,7 +122,7 @@ int ti_threadgroup_size(ti_threadgroup_t *tg, int16_t *tgsize)
 int ti_threadgroup_fork(ti_threadgroup_t *tg, int16_t ext_tid,
                         void **bcast_val)
 {
-    if (tg->tid_map[ext_tid - 1] == 0) {
+    if (tg->tid_map[ext_tid] == 0) {
         tg->envelope = bcast_val ? *bcast_val : NULL;
         cpu_sfence();
         tg->group_sense = tg->thread_sense[0]->sense;
@@ -138,13 +138,16 @@ int ti_threadgroup_fork(ti_threadgroup_t *tg, int16_t ext_tid,
 	// spin up to threshold cycles (count sheep), then sleep
 	uint64_t spin_cycles, spin_start = rdtsc();
         while (tg->group_sense !=
-               tg->thread_sense[tg->tid_map[ext_tid - 1]]->sense) {
+               tg->thread_sense[tg->tid_map[ext_tid]]->sense) {
 	    if (tg->sleep_threshold) {
 		spin_cycles = rdtsc() - spin_start;
 		if (spin_cycles >= tg->sleep_threshold) {
 		    pthread_mutex_lock(&tg->alarm_lock);
-		    pthread_cond_wait(&tg->alarm, &tg->alarm_lock);
-		    pthread_mutex_unlock(&tg->alarm_lock);
+                    if (tg->group_sense !=
+                        tg->thread_sense[tg->tid_map[ext_tid]]->sense) {
+                        pthread_cond_wait(&tg->alarm, &tg->alarm_lock);
+                    }
+                    pthread_mutex_unlock(&tg->alarm_lock);
 		    spin_start = rdtsc();
 		    continue;
 		}
@@ -152,7 +155,8 @@ int ti_threadgroup_fork(ti_threadgroup_t *tg, int16_t ext_tid,
             cpu_pause();
 	}
         cpu_lfence();
-        *bcast_val = tg->envelope;
+        if (bcast_val)
+            *bcast_val = tg->envelope;
     }
 
     return 0;
@@ -163,9 +167,9 @@ int ti_threadgroup_join(ti_threadgroup_t *tg, int16_t ext_tid)
 {
     int i;
 
-    tg->thread_sense[tg->tid_map[ext_tid - 1]]->sense
-        = !tg->thread_sense[tg->tid_map[ext_tid - 1]]->sense;
-    if (tg->tid_map[ext_tid - 1] == 0) {
+    tg->thread_sense[tg->tid_map[ext_tid]]->sense
+        = !tg->thread_sense[tg->tid_map[ext_tid]]->sense;
+    if (tg->tid_map[ext_tid] == 0) {
         for (i = 1;  i < tg->num_threads;  ++i) {
             while (tg->thread_sense[i]->sense == tg->group_sense)
                 cpu_pause();
@@ -178,8 +182,8 @@ int ti_threadgroup_join(ti_threadgroup_t *tg, int16_t ext_tid)
 
 void ti_threadgroup_barrier(ti_threadgroup_t *tg, int16_t ext_tid)
 {
-    ti_threadgroup_join(tg, ext_tid - 1);
-    ti_threadgroup_fork(tg, ext_tid - 1, NULL);
+    ti_threadgroup_join(tg, ext_tid);
+    ti_threadgroup_fork(tg, ext_tid, NULL);
 }
 
 

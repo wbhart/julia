@@ -105,13 +105,13 @@ void ti_start_threads()
 
     // current thread will be tid 1; set tid and affinitize to proc 0
     ti_threadsetaffinity(uv_thread_self(), 0);
-    ti_initthread(1);
+    ti_initthread(0);
 
     // create threads on correct procs
     for (i = 0;  i < TI_MAX_THREADS - 1;  ++i) {
         targ[i] = (ti_threadarg_t *)malloc(sizeof (ti_threadarg_t));
         targ[i]->state = TI_THREAD_INIT;
-        targ[i]->tid = i + 2;
+        targ[i]->tid = i + 1;
         ti_threadcreate(&ptid, i + 1, ti_threadfun, targ[i]);
     }
 
@@ -119,7 +119,7 @@ void ti_start_threads()
     ti_threadgroup_create(TI_MAX_SOCKETS, TI_MAX_CORES,
                           TI_MAX_THREADS_PER_CORE, &tgworld);
     for (i = 0;  i < TI_MAX_THREADS;  ++i)
-        ti_threadgroup_addthread(tgworld, i + 1, NULL);
+        ti_threadgroup_addthread(tgworld, i, NULL);
     ti_threadgroup_initthread(tgworld, ti_tid);
 
     // give the threads the world thread group; they will block waiting for fork
@@ -208,11 +208,13 @@ void *ti_threadfun(void *arg)
         fork_ticks[ti_tid] += t1 - t0;
 #endif
 
-        if (work->command == TI_THREADWORK_DONE)
-            break;
-        else if (work->command == TI_THREADWORK_RUN)
-            // TODO: return value? reduction?
-            ti_run_fun(work->fun, work->args, work->numargs);
+        if (work) {
+            if (work->command == TI_THREADWORK_DONE)
+                break;
+            else if (work->command == TI_THREADWORK_RUN)
+                // TODO: return value? reduction?
+                ti_run_fun(work->fun, work->args, work->numargs);
+        }
 
         ti_threadgroup_join(tg, ti_tid);
 
