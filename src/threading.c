@@ -75,7 +75,7 @@ int ti_threadcreate(uint64_t *pthread_id, int proc_num,
     CPU_SET(proc_num, &cset);
 
     pthread_attr_init(&attr);
-    pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cset);
+    //pthread_attr_setaffinity_np(&attr, sizeof(cpu_set_t), &cset);
     pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
     return pthread_create(pthread_id, &attr, thread_fun, thread_arg);
 }
@@ -88,7 +88,7 @@ void ti_threadsetaffinity(uint64_t pthread_id, int proc_num)
 
     CPU_ZERO(&cset);
     CPU_SET(proc_num, &cset);
-    pthread_setaffinity_np(pthread_id, sizeof(cpu_set_t), &cset);
+    //pthread_setaffinity_np(pthread_id, sizeof(cpu_set_t), &cset);
 }
 
 
