@@ -79,6 +79,8 @@ function fun(u1, u3, nx, ny, nz)
     end
 end
 
+precompile(fun, (Array{Float32,3}, Array{Float32,3}, Int64, Int64, Int64))
+
 function laplace3d_par(u1::Array{Float32,3}, u3::Array{Float32,3},
                        nx::Int64, ny::Int64, nz::Int64)
     ccall(:jl_threading_run, Void, (Any, Any), fun, (u1, u3, nx, ny, nz))
