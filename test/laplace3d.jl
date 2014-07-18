@@ -3,7 +3,6 @@ using Base.Threading
 
 const sixth = 1.0/6.0
 const error_tol = 0.00001
-const num_threads = 1
 
 function stencil3d(u::Array{Float32,3}, k_1::Int64, k_2::Int64, k_3::Int64)
     return u[k_1-1, k_2,   k_3  ] + u[k_1+1, k_2,   k_3]
@@ -52,19 +51,50 @@ function laplace3d_imp1(u1::Array{Float32,3}, u3::Array{Float32,3},
     end
 end
 
+function fun(u1, u3, nx, ny, nz)
+    tid = threadid()
+    tnz, rem = divrem(nz, nthreads())
+    z_start = 1 + ((tid-1) * tnz)
+    z_end = z_start + tnz - 1
+    if tid <= rem
+        z_start = z_start + tid - 1
+        z_end = z_end + tid
+    else
+        z_start = z_start + rem
+        z_end = z_end + rem
+    end
+    
+    for k_3 = z_start:z_end
+        for k_2 = 1:ny
+            @simd for k_1 = 1:nx
+                if k_1 == 1 || k_1 == nx ||
+                    k_2 == 1 || k_2 == ny ||
+                    k_3 == 1 || k_3 == nz
+                    @inbounds u3[k_1, k_2, k_3] = u1[k_1, k_2, k_3]
+                else
+                    @inbounds u3[k_1, k_2, k_3] = stencil3d(u1, k_1, k_2, k_3)
+                end
+            end
+        end
+    end
+end
+
 function laplace3d_par(u1::Array{Float32,3}, u3::Array{Float32,3},
                        nx::Int64, ny::Int64, nz::Int64)
+    ccall(:jl_threading_run, Void, (Any, Any), fun, (u1, u3, nx, ny, nz))
+    return
+
     @parblock begin
 	tid = threadid()
-        tnz, rem = divrem(nz, num_threads)
-        z_start = (tid * tnz) - tnz
+        tnz, rem = divrem(nz, nthreads())
+        z_start = 1 + ((tid-1) * tnz)
         z_end = z_start + tnz - 1
         if tid <= rem
-            z_end = z_end + tid + 1
-            z_start = z_start + tid
+            z_start = z_start + tid - 1
+            z_end = z_end + tid
         else
-            z_end = z_end + rem + 1
-            z_start = z_start + rem + 1
+            z_start = z_start + rem
+            z_end = z_end + rem
         end
 
         for k_3 = z_start:z_end

@@ -160,16 +160,9 @@ void ti_initthread(int16_t tid)
 // all threads call this function to run user code
 jl_value_t *ti_run_fun(jl_function_t *f, jl_tuple_t *args, size_t nargs)
 {
-    jl_value_t **argrefs = (jl_value_t **)alloca(sizeof (jl_value_t *) * nargs);
-    argrefs[0] = jl_box_int16(ti_tid);
-
-    int i;
-    for (i = 1;  i < nargs;  i++)
-        argrefs[i] = jl_tupleref(args, i);
-
     // try/catch
     if (!jl_setjmp(jl_thread_eh, 0)) {
-        jl_apply(f, argrefs, nargs);
+        jl_apply(f, &jl_tupleref(args,0), jl_tuple_len(args));
         return jl_nothing;
     }
     else {
@@ -293,8 +286,11 @@ jl_value_t *jl_threading_run(jl_function_t *f, jl_tuple_t *args)
 #endif
 
     size_t nargs = jl_tuple_len(args);
-    jl_tuple_t *argtypes = arg_type_tuple(&jl_tupleref(args, 0), nargs);
-    jl_function_t *fun = jl_get_specialization(f, argtypes);
+    jl_tuple_t *argtypes = NULL;
+    jl_function_t *fun = NULL;
+    JL_GC_PUSH2(&argtypes, &fun);
+    argtypes = arg_type_tuple(&jl_tupleref(args, 0), nargs);
+    fun = jl_get_specialization(f, argtypes);
     if (fun == NULL)
         fun = f;
     jl_compile(fun);
@@ -335,6 +331,7 @@ jl_value_t *jl_threading_run(jl_function_t *f, jl_tuple_t *args)
     uint64_t tjoin = rdtsc();
     join_ticks[ti_tid] += (tjoin - trun);
 #endif
+    JL_GC_POP();
 
     return tw->ret;
 }
