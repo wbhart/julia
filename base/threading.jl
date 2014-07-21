@@ -1,9 +1,9 @@
 module Threading
 
-export threadid, nthreads, @parblock, @parfun
+export threadid, maxthreads, nthreads, @parblock, @parfun
 
 threadid() = int(ccall(:jl_threadid, Int16, ())+1)
-
+maxthreads() = int(unsafe_load(cglobal(:jl_max_threads, Cint)))
 nthreads() = int(unsafe_load(cglobal(:jl_n_threads, Cint)))
 
 macro parblock(args...)
