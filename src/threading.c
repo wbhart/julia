@@ -151,6 +151,7 @@ struct _jl_thread_heap_t *jl_mk_thread_heap(void);
 void ti_initthread(int16_t tid)
 {
     ti_tid = tid;
+    jl_pgcstack = NULL;
     jl_all_pgcstacks[tid] = &jl_pgcstack;
     jl_all_heaps[tid] = jl_mk_thread_heap();
     jl_thread_heap = jl_all_heaps[tid];

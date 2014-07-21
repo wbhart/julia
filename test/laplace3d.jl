@@ -5,9 +5,9 @@ const sixth = 1.0/6.0
 const error_tol = 0.00001
 
 function stencil3d(u::Array{Float32,3}, k_1::Int64, k_2::Int64, k_3::Int64)
-    return u[k_1-1, k_2,   k_3  ] + u[k_1+1, k_2,   k_3]
-         + u[k_1,   k_2-1, k_3  ] + u[k_1,   k_2+1, k_3]
-         + u[k_1,   k_2,   k_3-1] + u[k_1,   k_2,   k_3+1] * sixth
+    return u[k_1-1, k_2,   k_3  ] + u[k_1+1, k_2,   k_3] +
+           u[k_1,   k_2-1, k_3  ] + u[k_1,   k_2+1, k_3] +
+           u[k_1,   k_2,   k_3-1] + u[k_1,   k_2,   k_3+1] * sixth
 end
 
 function laplace3d_orig(u1::Array{Float32,3}, u3::Array{Float32,3},

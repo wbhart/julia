@@ -976,10 +976,10 @@ void jl_gc_collect(void)
         return;
     }
 
-    ti_threadgroup_barrier(tgworld, 0);
+    ti_threadgroup_barrier(tgworld, ti_tid);
 
-    if (ti_tid != 1) {
-        ti_threadgroup_barrier(tgworld, 0);
+    if (ti_tid != 0) {
+        ti_threadgroup_barrier(tgworld, ti_tid);
         return;
     }
 
@@ -1050,7 +1050,7 @@ void jl_gc_collect(void)
     }
 
     allocd_bytes = 0;
-    ti_threadgroup_barrier(tgworld, 0);
+    ti_threadgroup_barrier(tgworld, ti_tid);
 }
 
 // allocator entry points
