@@ -50,10 +50,8 @@ int ti_threadgroup_create(uint8_t num_sockets, uint8_t num_cores,
     int num_threads = num_sockets * num_cores * num_threads_per_core;
     char *cp;
 
-    if (num_threads > TI_MAX_THREADS)
-        return -1;
-
     tg = (ti_threadgroup_t *)_mm_malloc(sizeof (ti_threadgroup_t), 64);
+    tg->tid_map = (int16_t *)_mm_malloc(num_threads * sizeof (int16_t), 64);
     for (i = 0;  i < num_threads;  ++i)
         tg->tid_map[i] = -1;
     tg->num_sockets = num_sockets;
@@ -71,7 +69,7 @@ int ti_threadgroup_create(uint8_t num_sockets, uint8_t num_cores,
     pthread_mutex_init(&tg->alarm_lock, NULL);
     pthread_cond_init(&tg->alarm, NULL);
 
-    tg->sleep_threshold = THREAD_SLEEP_THRESHOLD_DEFAULT;
+    tg->sleep_threshold = DEFAULT_THREAD_SLEEP_THRESHOLD;
     cp = getenv(THREAD_SLEEP_THRESHOLD_NAME);
     if (cp) {
 	if (!strncasecmp(cp, "infinite", 8))
@@ -88,7 +86,7 @@ int ti_threadgroup_create(uint8_t num_sockets, uint8_t num_cores,
 int ti_threadgroup_addthread(ti_threadgroup_t *tg, int16_t ext_tid,
                              int16_t *tgtid)
 {
-    if (ext_tid < 0 || ext_tid >= TI_MAX_THREADS)
+    if (ext_tid < 0 || ext_tid >= tg->num_threads)
         return -1;
     if (tg->tid_map[ext_tid] != -1)
         return -2;
@@ -106,7 +104,7 @@ int ti_threadgroup_initthread(ti_threadgroup_t *tg, int16_t ext_tid)
 {
     ti_thread_sense_t *ts;
 
-    if (ext_tid < 0 || ext_tid >= TI_MAX_THREADS)
+    if (ext_tid < 0 || ext_tid >= tg->num_threads)
         return -1;
     if (tg->thread_sense[tg->tid_map[ext_tid]] != NULL)
         return -2;
@@ -124,7 +122,7 @@ int ti_threadgroup_initthread(ti_threadgroup_t *tg, int16_t ext_tid)
 int ti_threadgroup_member(ti_threadgroup_t *tg, int16_t ext_tid,
                           int16_t *tgtid)
 {
-    if (ext_tid < 0 || ext_tid >= TI_MAX_THREADS)
+    if (ext_tid < 0 || ext_tid >= tg->num_threads)
         return -1;
     if (tg == NULL) {
         if (tgtid) *tgtid = -1;
@@ -230,6 +228,7 @@ int ti_threadgroup_destroy(ti_threadgroup_t *tg)
     for (i = 0;  i < tg->num_threads;  i++)
         _mm_free(tg->thread_sense[i]);
     _mm_free(tg->thread_sense);
+    _mm_free(tg->tid_map);
     _mm_free(tg);
 
     return 0;

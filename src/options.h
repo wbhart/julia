@@ -76,10 +76,16 @@
 
 // threading options ----------------------------------------------------------
 
-// # threads/cores
-#define TI_MAX_SOCKETS          1
-#define TI_MAX_CORES            16
-#define TI_MAX_THREADS_PER_CORE 1
-#define TI_MAX_THREADS          TI_MAX_SOCKETS*TI_MAX_CORES*TI_MAX_THREADS_PER_CORE
+// controls for when threads sleep
+#define THREAD_SLEEP_THRESHOLD_NAME	"JULIA_THREAD_SLEEP_THRESHOLD"
+#define DEFAULT_THREAD_SLEEP_THRESHOLD	1e9	// cycles (1e9==1sec@1GHz)
+
+// defaults for # threads
+#define NUM_THREADS_NAME		"JULIA_NUM_THREADS"
+#define DEFAULT_NUM_THREADS		8
+
+// affinitization behavior
+#define MACHINE_EXCLUSIVE_NAME		"JULIA_EXCLUSIVE"
+#define DEFAULT_MACHINE_EXCLUSIVE	0
 
 #endif

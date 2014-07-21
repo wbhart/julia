@@ -31,9 +31,6 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <stdint.h>
 #include <pthread.h>
 
-#define THREAD_SLEEP_THRESHOLD_NAME	"JULIA_THREAD_SLEEP_THRESHOLD"
-#define THREAD_SLEEP_THRESHOLD_DEFAULT	1000
-
 
 // for the barrier
 typedef struct {
@@ -44,7 +41,7 @@ typedef struct {
 
 // thread group
 typedef struct {
-    int16_t             tid_map[TI_MAX_THREADS], num_threads, added_threads;
+    int16_t             *tid_map, num_threads, added_threads;
     uint8_t             num_sockets, num_cores, num_threads_per_core;
 
     // fork/join/barrier

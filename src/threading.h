@@ -37,6 +37,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // thread ID
 extern __thread int16_t ti_tid;
+
+// GC
 extern __JL_THREAD struct _jl_thread_heap_t *jl_thread_heap;
 extern struct _jl_thread_heap_t **jl_all_heaps;
 extern jl_gcframe_t ***jl_all_pgcstacks;
@@ -88,16 +90,6 @@ void *ti_threadfun(void *arg);
 // helpers for thread function
 void ti_initthread(int16_t tid);
 jl_value_t *ti_runthread(jl_function_t *f, jl_tuple_t *args, size_t nargs);
-
-
-/*
-  external interface in julia.h
-
-void jl_threading_init();
-void jl_threading_cleanup();
-void *jl_threading_prepare_work(jl_function_t *f, jl_tuple_t *args);
-void jl_threading_do_work(void *w);
- */
 
 
 #endif  /* THREADING_H */
