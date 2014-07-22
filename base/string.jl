@@ -95,6 +95,8 @@ end
 
 isvalid(s::DirectIndexString, i::Integer) = (start(s) <= i <= endof(s))
 function isvalid(s::String, i::Integer)
+    i < 1 && return false
+    done(s,i) && return false
     try
         next(s,i)
         true
@@ -604,6 +606,11 @@ sizeof{T<:ByteString}(s::SubString{T}) = s.endof==0 ? 0 : next(s,s.endof)[2]-1
 # can this be delegated efficiently somehow?
 # that may require additional string interfaces
 length{T<:DirectIndexString}(s::SubString{T}) = endof(s)
+
+function length(s::SubString{UTF8String})
+    return s.endof==0 ? 0 : int(ccall(:u8_charnum, Csize_t, (Ptr{Uint8}, Csize_t),
+                                      pointer(s), next(s,s.endof)[2]-1))
+end
 
 function next(s::SubString, i::Int)
     if i < 1 || i > s.endof

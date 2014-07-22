@@ -2051,6 +2051,7 @@
 	    (local (:: ,(car is) (call (top typeof) ,(car lengths))))
 	    (= ,(car is) 0)
 	    (while (call (top !=) ,(car is) ,(car lengths))
+		   (scope-block
 		   (block
 		    (= ,(car is) (call (top +) ,(car is) 1))
 		    (= (tuple ,(cadr (car ranges)) ,(car states))
@@ -2058,7 +2059,7 @@
 		    ;; *** either this or force all for loop vars local
 		    ,.(map (lambda (r) `(local ,r))
 			   (lhs-vars (cadr (car ranges))))
-		    ,(construct-loops (cdr ranges) (cdr rv) (cdr is) (cdr states) (cdr lengths)))))))
+		    ,(construct-loops (cdr ranges) (cdr rv) (cdr is) (cdr states) (cdr lengths))))))))
 
     ;; Evaluate the comprehension
     `(block
@@ -2926,6 +2927,8 @@ So far only the second case can actually occur.
 	   (if vi
 	       (begin
 		 (vinfo:set-asgn! vi #t)
+		 ;; note: method defs require a memory loc. (issue #7658)
+		 (vinfo:set-sa! vi #f)
 		 (if (assq (car vi) captvars)
 		     (vinfo:set-iasg! vi #t)))))
 	 `(method ,(cadr e)

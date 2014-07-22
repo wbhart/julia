@@ -550,7 +550,6 @@ JL_CALLABLE(jl_f_set_field)
 JL_CALLABLE(jl_f_field_type)
 {
     JL_NARGS(fieldtype, 2, 2);
-    JL_TYPECHK(fieldtype, symbol, args[1]);
     jl_value_t *v = args[0];
     jl_value_t *vt = (jl_value_t*)jl_typeof(v);
     if (vt == (jl_value_t*)jl_module_type)
@@ -558,8 +557,17 @@ JL_CALLABLE(jl_f_field_type)
     if (!jl_is_datatype(vt))
         jl_type_error("fieldtype", (jl_value_t*)jl_datatype_type, v);
     jl_datatype_t *st = (jl_datatype_t*)vt;
-    jl_sym_t *fld = (jl_sym_t*)args[1];
-    return jl_tupleref(st->types, jl_field_index(st, fld, 1));
+    int field_index;
+    if (jl_is_long(args[1])) {
+        field_index = jl_unbox_long(args[1]) - 1;
+        if (field_index < 0 || field_index >= jl_tuple_len(st->names))
+            jl_throw(jl_bounds_exception);
+    }
+    else {
+        JL_TYPECHK(fieldtype, symbol, args[1]);
+        field_index = jl_field_index(st, (jl_sym_t*)args[1], 1);
+    }
+    return jl_tupleref(st->types, field_index);
 }
 
 // conversion -----------------------------------------------------------------
@@ -1220,9 +1228,10 @@ DLLEXPORT size_t jl_static_show(JL_STREAM *out, jl_value_t *v)
         n += JL_PRINTF(out, "goto %d", jl_gotonode_label(v));
     }
     else if (jl_is_quotenode(v)) {
-        n += JL_PRINTF(out, "quote ");
-        n += jl_static_show(out, jl_fieldref(v,0));
-        n += JL_PRINTF(out, " end");
+        jl_value_t *qv = jl_fieldref(v,0);
+        if (!jl_is_symbol(qv)) { n += JL_PRINTF(out, "quote "); }
+        n += jl_static_show(out, qv);
+        if (!jl_is_symbol(qv)) { n += JL_PRINTF(out, " end"); }
     }
     else if (jl_is_topnode(v)) {
         n += JL_PRINTF(out, "top(");
