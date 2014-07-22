@@ -37,6 +37,10 @@ release-candidate:
 	julia doc/NEWS-update.jl #Add missing cross-references to NEWS.md
 	make -C doc helpdb.jl #Rebuild Julia online documentation for help(), apropos(), etc...
 	@echo 1. Check that helpdb.jl doesn't have lots of extra newlines
+	make -C doc html  SPHINXOPTS="-W -n" #Rebuild Julia HTML docs pedantically
+	make -C doc latex SPHINXOPTS="-W -n" #Rebuild Julia PDF docs pedanctically
+	make -C doc doctest #Run Julia doctests
+	make -C doc linkcheck #Check all links
 	@echo 2. Remove deprecations
 	@echo 3. Bump VERSION
 
