@@ -164,4 +164,6 @@ doctest: juliadoc-pkg
 
 helpdb.jl: stdlib/*.rst juliadoc-pkg
 	$(SPHINXBUILD) -b jlhelp $(ALLSPHINXOPTS) $(BUILDDIR)/jlhelp
+	@awk 'BEGIN{n=0} {if(/^$$/) {n++} else {n=0}} (n>1){print "WARNING: Extra newlines detected. Do NOT check in the new helpdb.jl."; exit}' $(BUILDDIR)/jlhelp/jlhelp.jl
 	mv $(BUILDDIR)/jlhelp/jlhelp.jl helpdb.jl
+
