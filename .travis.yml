@@ -23,11 +23,16 @@ before_install:
     - sudo apt-get install zlib1g-dev
     - sudo add-apt-repository ppa:staticfloat/julia-deps -y
     - sudo apt-get update -qq -y
-    - sudo apt-get install patchelf gfortran llvm-3.3-dev libsuitesparse-dev libopenblas-dev liblapack-dev libarpack2-dev libfftw3-dev libgmp-dev libpcre3-dev libunwind7-dev libdouble-conversion-dev libopenlibm-dev librmath-dev libmpfr-dev -y
+    - sudo apt-get install patchelf gfortran llvm-3.3-dev libsuitesparse-dev libopenblas-dev liblapack-dev libarpack2-dev libfftw3-dev libgmp-dev libpcre3-dev libunwind7-dev libdouble-conversion-dev libopenlibm-dev librmath-dev libmpfr-dev python-sphinx -y
+    - sudo pip install sphinx_rtd_theme
 script:
     - make $BUILDOPTS prefix=/tmp/julia install
     - cd .. && mv julia julia2
     - git config --global user.name "Travis CI"
     - cd /tmp/julia/share/julia/test && /tmp/julia/bin/julia-debug --check-bounds=yes runtests.jl all && /tmp/julia/bin/julia-debug --check-bounds=yes runtests.jl pkg
     - cd - && mv julia2 julia
+    - cd julia && make -C doc html SPHINXOPT="-W"
+    - make -C doc latexpdf SPHINXOPT="-W"
+    - make -C doc doctest
+    - make -C doc linkcheck
     - echo "Ready for packaging..."
