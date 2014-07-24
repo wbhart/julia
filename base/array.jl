@@ -589,9 +589,7 @@ function deleteat!(a::Vector, inds)
     return a
 end
 
-const _default_splice = []
-
-function splice!{T}(a::Array{T,1}, i::Integer, ins::AbstractVector{T}=_default_splice)
+function splice!{T}(a::Array{T,1}, i::Integer, ins::AbstractVector{T}=T[])
     v = a[i]
     m = length(ins)
     if m == 0
@@ -607,7 +605,7 @@ function splice!{T}(a::Array{T,1}, i::Integer, ins::AbstractVector{T}=_default_s
     return v
 end
 
-function splice!{T,N<:Integer}(a::Array{T,1}, r::UnitRange{N}, ins::AbstractVector{T}=_default_splice)
+function splice!{T,N<:Integer}(a::Array{T,1}, r::UnitRange{N}, ins::AbstractVector{T}=T[])
     v = a[r]
     m = length(ins)
     if m == 0

@@ -71,11 +71,11 @@ function complete_symbol(sym, ffunc)
             # Also look in modules we got through `using`
             mods = ccall(:jl_module_usings, Any, (Any,), Main)
             for m in mods
-                append!(suggestions, filtered_mod_names(p, m, name))
+                append!(suggestions, convert(Array{UTF8String,1},filtered_mod_names(p, m, name)))
             end
-            append!(suggestions, filtered_mod_names(p, mod, name, true, true))
+            append!(suggestions, convert(Array{UTF8String,1},filtered_mod_names(p, mod, name, true, true)))
         else
-            append!(suggestions, filtered_mod_names(p, mod, name, true, false))
+            append!(suggestions, convert(Array{UTF8String,1},filtered_mod_names(p, mod, name, true, false)))
         end
     else
         # Looking for a member of a type
@@ -176,6 +176,7 @@ function latex_completions(string, pos)
 end
 
 function completions(string, pos)
+    string = utf8(string)
     inc_tag = Base.incomplete_tag(parse(string[1:pos], raise=false))
     if inc_tag in [:cmd, :string]
         startpos = nextind(string, rsearch(string, non_filename_chars, pos))
@@ -204,7 +205,7 @@ function completions(string, pos)
     ffunc = (mod,x)->true
     suggestions = UTF8String[]
     comp_keywords = true
-    if afterusing(string, startpos)
+    if Base.REPLCompletions.afterusing(string, startpos)
         # We're right after using or import. Let's look only for packages
         # and modules we can reach from here
 
@@ -212,12 +213,12 @@ function completions(string, pos)
         # also search for packages
         s = string[startpos:pos]
         if dotpos <= startpos
-            append!(suggestions, filter(readdir(Pkg.dir())) do pname
+            append!(suggestions, convert(Array{UTF8String,1},filter(readdir(Pkg.dir())) do pname
                 pname[1] != '.' &&
                 pname != "METADATA" &&
                 pname != "REQUIRE" &&
                 beginswith(pname, s)
-            end)
+            end))
         end
         ffunc = (mod,x)->(isdefined(mod, x) && isa(mod.(x), Module))
         comp_keywords = false
@@ -225,8 +226,8 @@ function completions(string, pos)
     startpos == 0 && (pos = -1)
     dotpos <= startpos && (dotpos = startpos - 1)
     s = string[startpos:pos]
-    comp_keywords && append!(suggestions, complete_keyword(s))
-    append!(suggestions, complete_symbol(s, ffunc))
+    comp_keywords && append!(suggestions, convert(Array{UTF8String,1},complete_keyword(s)))
+    append!(suggestions, convert(Array{UTF8String,1},complete_symbol(s, ffunc)))
     return sort(unique(suggestions)), (dotpos+1):pos, true
 end
 
