@@ -9,9 +9,9 @@ static GlobalVariable *prepare_global(GlobalVariable *G)
         if (!gv) {
             gv = new GlobalVariable(*jl_Module, G->getType()->getElementType(),
                                     G->isConstant(), GlobalVariable::ExternalLinkage,
-                                    NULL, G->getName());
+                                    NULL, G->getName(), NULL, G->getThreadLocalMode());
         }
-        return gv;     
+        return gv;
     }
 #endif
     return G;

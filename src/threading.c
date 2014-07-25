@@ -235,9 +235,9 @@ void jl_init_threading()
     cp = getenv(NUM_THREADS_NAME);
     if (cp) {
 	jl_n_threads = (uint64_t)strtol(cp, NULL, 10);
-	if (jl_n_threads > jl_max_threads)
-	    jl_n_threads = jl_max_threads;
     }
+    if (jl_n_threads > jl_max_threads)
+        jl_n_threads = jl_max_threads;
 
     // set up space for per-thread heaps
     jl_all_heaps = malloc(jl_n_threads * sizeof(void*));

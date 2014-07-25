@@ -752,6 +752,8 @@ const jl_value_t *jl_dump_llvmf(void *f, bool dumpasm)
     llvm::formatted_raw_ostream fstream(stream);
     Function *llvmf = (Function*)f;
     if (dumpasm == false) {
+        // To print whole module
+        //llvmf->getParent()->print(stream, NULL);
         llvmf->print(stream);
     }
     else {
