@@ -289,6 +289,12 @@ DEBUGFLAGS = -O0 -ggdb3 -DJL_DEBUG_BUILD -fstack-protector-all
 SHIPFLAGS = -O3 -falign-functions
 endif
 
+ifneq ($(USEICC),1)
+JCFLAGS += -m$(BINARY)
+JCXXFLAGS += -m$(BINARY)
+JFFLAGS += -m$(BINARY)
+endif
+
 ifeq ($(LLVM_VER),svn)
 JCXXFLAGS += -std=c++11
 endif
@@ -429,9 +435,6 @@ BINARY=64
 else
 $(error "unknown word-size for arch: $(ARCH)")
 endif
-CC += -m$(BINARY)
-CXX += -m$(BINARY)
-FC += -m$(BINARY)
 
 ifeq ($(USEGCC),1)
 ifneq ($(ARCH), ppc64)
@@ -678,6 +681,13 @@ LIBBLAS = -L$(ATLAS_LIBDIR) -lsatlas
 LIBLAPACK = $(LIBBLAS)
 LIBBLASNAME = libsatlas
 LIBLAPACKNAME = $(LIBBLASNAME)
+endif
+
+# Custom libcxx
+ifeq ($(BUILD_CUSTOM_LIBCXX),1)
+LDFLAGS += -L$(build_libdir) -lc++abi
+CXXLDFLAGS += -L$(build_libdir) -lc++abi -stdlib=libc++
+CPPFLAGS += -I$(build_includedir)/c++/v1
 endif
 
 # Make tricks
